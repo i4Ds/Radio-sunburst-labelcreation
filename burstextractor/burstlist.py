@@ -41,6 +41,7 @@ def process_burst_list(filename):
     data['time'] = extracted_digits[0] + ':' + extracted_digits[1] + '-' + extracted_digits[2] + ':' + extracted_digits[3]
 
     data['datetime_start'], data['datetime_end'] = pd.to_datetime(data.date + " " + data.time.str.split("-").str[0]), pd.to_datetime(data.date + " " + data.time.str.split("-").str[1])
+    data['duration'] = data['datetime_end'] - data['datetime_start']
     
     return data
 
