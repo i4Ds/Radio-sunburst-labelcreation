@@ -28,21 +28,6 @@ def process_burst_list(filename):
                 
     data = pd.read_csv(filename, sep="\t", index_col=False, encoding=ENCODING, names=col_names, engine="python", skiprows=skip_row_idxs, dtype=str)
     
-    ## Fix typos in the data
-    # Sometimes, the time range sometimes uses a : instead of a -. Thus, it's hard to split the time range
-    extracted_digits = data['time'].str.extract(r'(\d+).(\d+).(\d+).(\d+)', expand=True)
-    
-    # Somtimes, there are impossible hours like 25:00. We'll set them to 00:00 and impossible minutes to 59
-    extracted_digits[0] = extracted_digits[0].apply(lambda x: '00' if int(x) > 23 else x)
-    extracted_digits[1] = extracted_digits[1].apply(lambda x: '59' if int(x) > 59 else x)
-    extracted_digits[2] = extracted_digits[2].apply(lambda x: '00' if int(x) > 23 else x)
-    extracted_digits[3] = extracted_digits[3].apply(lambda x: '59' if int(x) > 59 else x)
-    
-    data['time'] = extracted_digits[0] + ':' + extracted_digits[1] + '-' + extracted_digits[2] + ':' + extracted_digits[3]
-
-    data['datetime_start'], data['datetime_end'] = pd.to_datetime(data.date + " " + data.time.str.split("-").str[0]), pd.to_datetime(data.date + " " + data.time.str.split("-").str[1])
-    data['duration'] = data['datetime_end'] - data['datetime_start']
-    
     return data
 
 

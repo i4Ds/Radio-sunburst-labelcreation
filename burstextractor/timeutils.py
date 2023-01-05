@@ -1,27 +1,43 @@
 import datetime
+import pandas as pd
+import numpy as np
 
+def extract_time(data):
+    ## Fix typos in the data
+    # Sometimes, the time range sometimes uses a : instead of a -. Thus, it's hard to split the time range
+    extracted_digits = data['time'].str.extract(r'(\d+).(\d+).(\d+).(\d+)', expand=True)
+    
+    data['time'] = extracted_digits[0] + ':' + extracted_digits[1] + '-' + extracted_digits[2] + ':' + extracted_digits[3]
+    data['time_start'] = extracted_digits[0] + ':' + extracted_digits[1]
+    data['time_end'] = extracted_digits[2] + ':' + extracted_digits[3]
 
-def extract_and_correct_time(event_time):
+    return data
+
+def fix_typos_in_time(data):
+    replace_dict = {
+        '06:06-06:88': '06:06-06:08',
+        '24:32-14:33': '14:32-14:33',
+    }
+    
+    data['time'] = data['time'].replace(replace_dict)
+    return data
+
+def fix_24_hour_time(data):
     """
-    the event time may have typos in it, i.e. 01_55 instead of 01:55.
-    this function corrects it.
-    Returns: start and end of event as datetime object
-    May seems overkill but we never now what we will do with it.
+    The time range sometimes uses a 24:00 instead of 00:00. Thus, it's hard to split the time range
     """
-    try:
-        start = event_time.split("-")[0]
-        end = event_time.split("-")[1]
-    except Exception as ex:
-        raise ex
+    data['date_start'] = data['date']
+    data['date_end'] = np.where(data['time_end'] == '24:00', (data['date'].astype(int) + 1).astype(str), data['date'])
+    
+    for time in ['time', 'time_start', 'time_end']:
+        data[time] = data[time].str.replace('24:00', '00:00')
+    
+    return data
 
-    if ":" not in start:
-        start = start[0:2] + ":" + start[3:-1]
-
-    if ":" not in end:
-        end = end[0:2] + ":" + end[3:-1]
-
-    return datetime.datetime.strptime(start, "%H:%M"), datetime.datetime.strptime(end, "%H:%M")
-
+def create_datetime(data):
+    data['datetime_start'] = pd.to_datetime(data['date_start'] + ' ' + data['time_start'], format='%Y%m%d %H:%M')
+    data['datetime_end'] = pd.to_datetime(data['date_end'] + ' ' + data['time_end'], format='%Y%m%d %H:%M')
+    return data
 
 def check_valid_date(year, month):
     """
