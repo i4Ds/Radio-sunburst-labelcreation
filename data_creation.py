@@ -32,4 +32,3 @@ if __name__ == '__main__':
     IMAGE_FOLDER = 'images'
     
     burst_list = pd.read_excel('burst_list.xlsx')
-    print(burst_list.sample(5))
