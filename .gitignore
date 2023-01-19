@@ -1,3 +1,4 @@
 /e-CALLISTO_*
 *.pyc
 burstextractor/__pycache__/*
+images/*
