@@ -72,8 +72,9 @@ def plot_spectogram(spectogram):
     plt.show()
 
 def download_spectogram(df_row, mid_time, duration, subtract_background=True):
-    spec = CallistoSpectrogram.from_range(df_row['instruments'], mid_time - duration / 2,  mid_time + duration / 2)
+    spec = CallistoSpectrogram.from_range(df_row['instruments'], mid_time - duration / 2,  mid_time + duration / 2, exact=True)
     spec = spec.remove_border()
+    spec = spec.elimwrongchannels()
     if subtract_background:
         spec = spec.subtract_bg()
     spec = spec_to_pd_dataframe(spec, df_row)
