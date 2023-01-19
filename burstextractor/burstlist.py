@@ -7,6 +7,7 @@ project: Raumschiff
 import pandas as pd
 from burstextractor import timeutils
 import requests
+import os
 
 BASE_URL = f"http://soleil.i4ds.ch/solarradio/data/BurstLists/2010-yyyy_Monstein"
 ENCODING = "iso-8859-1"
@@ -31,7 +32,7 @@ def process_burst_list(filename):
     return data
 
 
-def download_burst_list(select_year, select_month):
+def download_burst_list(select_year, select_month, folder='ecallisto_files'):
     """
     The burst list contains all (manually) detected radio bursts per
     month and year. This function gets the file from the server.
@@ -43,7 +44,7 @@ def download_burst_list(select_year, select_month):
     timeutils.check_valid_date(select_year, select_month)
     year, month = timeutils.adjust_year_month(select_year, select_month)
 
-    filename = f"e-CALLISTO_{year}_{month}.txt"
+    filename = os.path.join(folder, 'e-CALLISTO_{year}_{month}.txt')
     flare_list = requests.get(f"{BASE_URL}/{year}/{filename}")
     with open(filename, "w") as f:
         f.write(flare_list.content.decode(ENCODING))
