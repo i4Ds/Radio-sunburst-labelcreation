@@ -1,4 +1,3 @@
 /e-CALLISTO_*
 *.pyc
 burstextractor/__pycache__/*
-burstextractor/__pycache__/burstlist.cpython-311.pyc
