@@ -2,7 +2,6 @@ import pandas as pd
 import cv2
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
 from radiospectra.sources import CallistoSpectrogram
 
 def int_time_delta_to_pd_timedelta(int_time_delta):
@@ -15,10 +14,15 @@ def spec_time_to_pd_datetime(spec):
     datetime_range = pd.date_range(start_time, periods=len(time_axis), freq=int_time_delta_to_pd_timedelta(time_frequency))
     return datetime_range
     
-def spec_to_pd_dataframe(spec, df_row):
+def spec_to_pd_dataframe(spec, kwargs=None):
     df = pd.DataFrame(spec.data.T, index=spec_time_to_pd_datetime(spec), columns=[float(x) for x in spec.freq_axis])
-    df.attrs['content'] = spec.content
-    df.attrs['sunflare_type'] = df_row['type']
+    # Add all the header information to the dataframe
+    for key, value in spec.header.items():
+        df.attrs[key] = value
+    # Add the sunflare type to the dataframe from kwargs
+    if kwargs is not None:
+        for key, value in kwargs.items():
+            df.attrs[key] = value
     return df
 
 def change_resolution_over_freq(spectogram, freq_resolution, interpolation=cv2.INTER_LINEAR):
@@ -36,8 +40,8 @@ def change_resolution_over_freq(spectogram, freq_resolution, interpolation=cv2.I
     freq_range = cv2.resize(columns.astype(float).values.reshape(-1, 1), (1, freq_resolution), interpolation=interpolation).reshape(-1)
     
     df = pd.DataFrame(spectogram_resized, index=index, columns=freq_range.astype(object))
-    df.attrs['content'] = spectogram.attrs['content']
-    df.attrs['sunflare_type'] = spectogram.attrs['sunflare_type']
+    for key, value in spectogram.attrs.items():
+        df.attrs[key] = value
     
     return df
 
@@ -56,17 +60,20 @@ def change_resolution_over_time(spectogram, time_resolution, interpolation=cv2.I
     date_range = pd.date_range(start=index[0], end=index[-1], periods=time_resolution)
     
     df = pd.DataFrame(spectogram_resized, index=date_range, columns=columns)
-    df.attrs['content'] = spectogram.attrs['content']
-    df.attrs['sunflare_type'] = spectogram.attrs['sunflare_type']
+    for key, value in spectogram.attrs.items():
+        df.attrs[key] = value
     
     return df
 
-def plot_spectogram(spectogram):
+def plot_spectogram(spectogram, sunflare_type=None):
     spectogram = spectogram.copy()
     spectogram.index = spectogram.index.strftime('%Y-%m-%d %H:%M:%S')
     spectogram.columns = [f'{col:.2f}' for col in spectogram.columns]
     ax = sns.heatmap(spectogram.T, cmap='viridis', cbar_kws={'label': 'Flux (W/m^2)'})
-    plt.title(f'Spectogram {spectogram.attrs["content"]}. Type: {spectogram.attrs["sunflare_type"]}')
+    title = f'Spectogram {spectogram.attrs["CONTENT"]}'
+    if sunflare_type is not None:
+        title += f'. Sunflaretype: {sunflare_type}'
+    plt.title(title)
     plt.ylabel('Frequency (MHz)')
     plt.xlabel('Time UTC')
     plt.show()
@@ -84,3 +91,17 @@ def download_spectogram(df_row, mid_time, duration, subtract_background=True):
 def download_spectogram_from_df_row(df_row, duration):
     mid_time = df_row['datetime_start'] + (df_row['datetime_end'] - df_row['datetime_start']) / 2
     return download_spectogram(df_row, mid_time, duration)
+
+def masked_spectogram_to_array(spectogram):
+    """
+    Converts a masked spectogram to an array
+    """
+    # Get row with all masked values
+    idxs = np.where(np.all(ma.getmaskarray(spectogram.data), axis=1))[0]
+    # Keep only frequencies with no masked values
+    freq = spectogram.freq_axis[idxs]
+    # keep only rows in idxs
+    data = ma.getdata(spectogram.data)
+    spectogram.data = data[~np.isnan(data).any(axis=1)]
+    
+    return spectogram
