@@ -1,4 +1,7 @@
-from database_utils import extract_instrument_name
+from database_utils import (
+    extract_instrument_name,
+    numbers_list_to_postgresql_columns_meta_data,
+)
 from data_creation import download_ecallisto_files
 from database_utils import (
     glob_files,
@@ -33,6 +36,30 @@ import os
 )
 def test_instrument_name_extraction(test_input, expected):
     assert extract_instrument_name(test_input) == expected
+
+
+@pytest.mark.parametrize(
+    "names, types, expected",
+    [
+        (
+            ["test", "test2", "test3"],
+            ["int", "float", "varchar"],
+            "test int, test2 float, test3 varchar",
+        ),
+        (
+            [3133213, 1, 0.0],
+            ["int", "float", "varchar"],
+            '"3133213" int, "1" float, "0.0" varchar',
+        ),
+        (
+            [31.3, "testa", 0.013],
+            ["int", "varchar", "varchar"],
+            '"31.3" int, testa varchar, "0.013" varchar',
+        ),
+    ],
+)
+def test_sql_column_creation(names, types, expected):
+    assert numbers_list_to_postgresql_columns_meta_data(names, types) == expected
 
 
 class TestDataCreation:

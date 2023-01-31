@@ -78,22 +78,30 @@ def is_table_in_db(table_name):
     return table_name in get_table_names_sql()
 
 
-def numbers_list_to_postgresql_columns_meta_data(list_, types):
+def numbers_list_to_postgresql_columns_meta_data(names, types):
     """
     Converts a list to a string. Because postgresql does not allow
     numbers as column names, the numbers are encapsulated in "".
     """
+    names_ = []
+    for name in names:
+        if isinstance(name, int) or isinstance(name, float) or name[0].isnumeric():
+            names_.append(f'"{name}"')
+        else:
+            names_.append(name)
+
+    names = names_.copy()
     if isinstance(types, list):
-        return ", ".join([f'"{item}" {type}' for (item, type) in zip(list_, types)])
+        return ", ".join([f"{name} {type}" for (name, type) in zip(names, types)])
     else:
-        return ", ".join([f'"{item}" {types}' for item in list_])
+        return ", ".join([f"{name} {types}" for name in names])
 
 
-def create_table(instrument_name, frequencies_columns, type="REAL"):
+def create_table(instrument_name, frequencies_columns, types="REAL"):
     """
     Creates a table for the given instrument with the given frequencies.
     """
     columns_meta_data = numbers_list_to_postgresql_columns_meta_data(
-        frequencies_columns, type=type
+        frequencies_columns, types=types
     )
     create_table_sql(instrument_name, columns_meta_data)
