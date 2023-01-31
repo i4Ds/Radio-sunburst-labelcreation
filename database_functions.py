@@ -71,3 +71,18 @@ def get_table_names_sql():
 
         tuple_list = cursor.fetchall()
         return [tup[0] for tup in tuple_list]
+
+
+def insert_values_sql(table_name, columns, values):
+    """
+    Inserts values into the given table
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""INSERT INTO {table_name} ({columns})
+                        VALUES {values};
+                        """
+        )
+        conn.commit()
+        cursor.close()

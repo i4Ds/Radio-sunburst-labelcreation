@@ -1,6 +1,7 @@
 import os
 from glob import glob
 from database_functions import get_table_names_sql, create_table_sql
+from datetime import datetime
 
 
 def extract_instrument_name(file_path):
@@ -40,7 +41,7 @@ def extract_constant_meta_data(specs, name):
             key = key.lower()
             if isinstance(value, str):
                 value = value.strip()
-            if key not in meta_data:
+            if key not in meta_data and value is not None and value != "":
                 meta_data[key] = value
             else:
                 if meta_data[key] != value:
@@ -105,3 +106,18 @@ def create_table(instrument_name, frequencies_columns, types="REAL"):
         frequencies_columns, types=types
     )
     create_table_sql(instrument_name, columns_meta_data)
+
+
+def python_type_to_postgresql_type(python_type):
+    if python_type == int:
+        return "INTEGER"
+    elif python_type == float:
+        return "REAL"
+    elif python_type == str:
+        return "TEXT"
+    elif python_type == datetime:
+        return "TIMESTAMP"
+    elif python_type == bool:
+        return "BOOLEAN"
+    else:
+        raise ValueError(f"Unknown python type: {python_type}.")
