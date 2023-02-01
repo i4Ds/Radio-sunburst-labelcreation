@@ -100,3 +100,31 @@ def insert_values_sql(table_name, columns, values):
         )
         conn.commit()
         cursor.close()
+
+
+def get_size_of_table(table_name):
+    """
+    Returns the size of the given table in MB
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT pg_size_pretty(pg_total_relation_size('{table_name}'));
+                        """
+        )
+        size = cursor.fetchone()[0]
+        return size
+
+
+def get_size_of_database():
+    """
+    Returns the size of the database in MB
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT pg_size_pretty(pg_database_size('tsdb'));
+                        """
+        )
+        size = cursor.fetchone()[0]
+        return size
