@@ -1,6 +1,7 @@
 from database_utils import (
     extract_instrument_name,
     numbers_list_to_postgresql_columns_meta_data,
+    np_array_to_postgresql_array,
 )
 from data_creation import download_ecallisto_files
 from database_utils import (
@@ -9,6 +10,7 @@ from database_utils import (
     extract_separate_instruments,
 )
 import pytest
+import numpy as np
 from datetime import datetime
 import os
 
@@ -18,19 +20,19 @@ import os
     [
         (
             "/var/lib/ecallisto/2023/01/27/ALASKA-COHOE_20230127_001500_612.fit.gz",
-            "alaska-cohoe_612",
+            "alaska_cohoe_612",
         ),
         (
             "/random_2313/ecallisto/2023/01/27/ALASKA_COHOE_20230127_001500_61212.fit.gz",
-            "alaska-cohoe_61212",
+            "alaska_cohoe_61212",
         ),
         (
             "/random_2313/ecallisto/2023/01/27/ALASKA_COHOE_20230127_001500.fit.gz",
-            "alaska-cohoe",
+            "alaska_cohoe",
         ),
         (
             "/ran3123öü¨ö23üöeaöd¨üö2¨/ecallisto/2023/01/27/FHN_W_20230127_001500_11.fit.gz",
-            "fhn-w_11",
+            "fhn_w_11",
         ),
     ],
 )
@@ -103,3 +105,14 @@ class TestDataCreation:
             os.remove(file)
         file_paths = glob_files(dir, "**", "*", "fit.gz")
         assert len(file_paths) == 0
+
+
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        (np.array([[1, 2, 3], [4, 5, 6]]), "(1, 2, 3),(4, 5, 6)"),
+        (np.array([[1, 2, 3]]), "(1, 2, 3)"),
+    ],
+)
+def test_np_array_to_postgresql_array(input, expected):
+    assert np_array_to_postgresql_array(input) == expected

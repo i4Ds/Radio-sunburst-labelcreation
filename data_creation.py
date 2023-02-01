@@ -7,15 +7,28 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from datetime import datetime, timedelta
+import pandas as pd
+import logging
+
 
 LOCAL_DATA_FOLDER = os.path.join(os.path.abspath(os.sep), "var", "lib", "ecallisto")
 FILES_BASE_URL = "http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/"
 MIN_FILE_SIZE = 2000  # Minimum file size in bytes, to redownload empty files
+LOG_FILE = os.path.join(
+    os.path.abspath(os.sep),
+    "var",
+    "log",
+    "ecallisto",
+    f"log_data_creation_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.log",
+)
 
 
 def fetch_content(url):
     reqs = requests.get(url)
     soup = BeautifulSoup(reqs.text, "html.parser")
+    logging.info(f"Function {fetch_content}")
+    logging.info(f"Fetching content from {url}")
+    logging.info(f"Status code: {reqs.status_code}")
     return soup
 
 
@@ -33,6 +46,10 @@ def extract_content(soup, substrings_to_include):
             [pattern in link.get("href") for pattern in substrings_to_include]
         ):  # If none of the substrings are in the link
             content.append(link.get("href"))
+    logging.info(f"Function {extract_content}")
+    logging.info(
+        f"Extracted {len(content)} files with the following substrings: {substrings_to_include}"
+    )
     return content
 
 
@@ -49,6 +66,11 @@ def extract_fit_gz_files(url, instrument, substrings_to_include=None):
         substrings_to_include = [".fit.gz"]
     if instrument:
         substrings_to_include.append(instrument)
+
+    logging.info(f"Function {extract_fit_gz_files}")
+    logging.info(
+        f"Extracting files with the following substrings: {substrings_to_include}"
+    )
     return extract_content(soup, substrings_to_include=substrings_to_include)
 
 
@@ -62,6 +84,8 @@ def extract_fiz_gz_files_urls(year, month, day, instrument):
     url = f"{FILES_BASE_URL}{year}/{month}/{day}/"
     file_names = extract_fit_gz_files(url, instrument=instrument)
     urls = [url + file_name for file_name in file_names]
+    logging.info(f"Function {extract_fiz_gz_files_urls}")
+    logging.info(f"Extracted {len(urls)} files")
     return urls
 
 
@@ -80,17 +104,20 @@ def download_ecallisto_file(URL, return_download_path=False, dir=LOCAL_DATA_FOLD
         req = requests.get(URL)
         with open(file_path, "wb") as output_file:
             output_file.write(req.content)
+    logging.info(f"Function {download_ecallisto_file}")
+    logging.debug(f"Downloaded file {file_path}")
     # Return path (e.g. for astropy.io.fits.open)
     if return_download_path:
         return file_path
 
 
 def download_ecallisto_files(
-    start_date=datetime.now().date() - timedelta(days=1),
+    dir,
+    start_date=datetime.today().date() - timedelta(days=1),
     end_date=datetime.today().date(),
-    instrument="*",
+    instrument=None,
     return_download_paths=False,
-    dir=None,
+    logger=None,
 ):
     """
     Downloads all the eCallisto files from the given start date to the end date. If the files already exist, they will not be downloaded again.
@@ -103,23 +130,30 @@ def download_ecallisto_files(
     assert (
         start_date <= end_date
     ), "Start date should be less than end date and both should be datetime objects"
+    if logger is None:
+        logging.basicConfig(
+            filename=LOG_FILE,
+            format="%(asctime)s %(levelname)-8s %(message)s",
+            level=logging.DEBUG,
+            datefmt="%Y-%m-%d %H:%M:%S",
+            force=True,
+        )
     if isinstance(instrument, str) and instrument.lower() in ["*", "all", ""]:
         instrument = None
+    logging.info(
+        f"Downloading files from {start_date} to {end_date} (instrument: {instrument if instrument else 'all'})"
+    )
     paths = []
-    for year in range(start_date.year, end_date.year + 1):
-        for month in range(start_date.month, end_date.month + 1):
-            month = f"0{month}" if month < 10 else month
-            for day in range(start_date.day, end_date.day + 1):
-                day = f"0{day}" if day < 10 else day
-                urls = extract_fiz_gz_files_urls(
-                    year, month, day, instrument=instrument
-                )
-                for url in tqdm(urls, desc=f"Downloading {year}-{month}-{day}"):
-                    path = download_ecallisto_file(
-                        url, return_download_path=True, dir=dir
-                    )
-                    if return_download_paths:
-                        paths.append(path)
+    for date in pd.date_range(start_date, end_date):
+        day = date.day if date.day > 9 else f"0{date.day}"
+        month = date.month if date.month > 9 else f"0{date.month}"
+        urls = extract_fiz_gz_files_urls(date.year, month, day, instrument=instrument)
+        for url in tqdm(urls, desc=f"Downloading {date}"):
+            path = download_ecallisto_file(url, return_download_path=True, dir=dir)
+            logging.debug(f"Downloaded file {path}")
+            if return_download_paths:
+                paths.append(path)
+
     if return_download_paths:
         return paths
 
@@ -127,6 +161,7 @@ def download_ecallisto_files(
 if __name__ == "__main__":
     print(f"Downloading files to {LOCAL_DATA_FOLDER}")
     download_ecallisto_files(
+        dir=LOCAL_DATA_FOLDER,
         start_date=datetime(2023, 1, 1),
         end_date=datetime(2023, 1, 2),
         instrument="ALASKA",

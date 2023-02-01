@@ -3,3 +3,4 @@
 burstextractor/__pycache__/*
 images/*
 test_data/**/*.fit.gz
+*.log
