@@ -103,7 +103,7 @@ def plot_spectogram(spectogram, sunflare_type=None):
     spectogram.index = spectogram.index.strftime("%Y-%m-%d %H:%M:%S")
     spectogram.columns = [f"{col:.2f}" for col in spectogram.columns]
     ax = sns.heatmap(spectogram.T, cmap="viridis", cbar_kws={"label": "Flux (W/m^2)"})
-    title = f'Spectogram {spectogram.attrs["CONTENT"]}'
+    title = f'Spectogram {spectogram.attrs["instrument"]}'
     if sunflare_type is not None:
         title += f". Sunflaretype: {sunflare_type}"
     plt.title(title)

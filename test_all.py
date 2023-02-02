@@ -86,17 +86,17 @@ class TestDataCreation:
         file_paths = glob_files(dir, "**", "*", "fit.gz")
         instruments = extract_separate_instruments(file_paths)
         assert len(instruments) == 2
-        assert "alaska-cohoe_00" in instruments
-        assert "alaska-cohoe_01" in instruments
+        assert "alaska_cohoe_00" in instruments
+        assert "alaska_cohoe_01" in instruments
 
     def test_dict_of_instruments_paths(self, dir="test_data"):
         file_paths = glob_files(dir, "**", "*", "fit.gz")
         instruments = create_dict_of_instrument_paths(file_paths)
         assert len(instruments) == 2
-        assert "alaska-cohoe_00" in instruments
-        assert "alaska-cohoe_01" in instruments
-        assert len(instruments["alaska-cohoe_00"]) == 24
-        assert len(instruments["alaska-cohoe_01"]) == 24
+        assert "alaska_cohoe_00" in instruments
+        assert "alaska_cohoe_01" in instruments
+        assert len(instruments["alaska_cohoe_00"]) == 24
+        assert len(instruments["alaska_cohoe_01"]) == 24
 
     def test_remove_files(self, dir="test_data"):
         file_paths = glob_files(dir, "**", "*", "fit.gz")
