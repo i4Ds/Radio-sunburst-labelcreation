@@ -8,6 +8,7 @@ from database_utils import (
     glob_files,
     create_dict_of_instrument_paths,
     extract_separate_instruments,
+    combine_non_unique_frequency_axis_mean,
 )
 import pytest
 import numpy as np
@@ -79,18 +80,24 @@ class TestDataCreation:
         )
 
     def test_globbing(self, dir="test_data"):
-        file_paths = glob_files(dir, "**", "*", "fit.gz")
+        file_paths = glob_files(
+            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+        )
         assert len(file_paths) == 48
 
     def test_extraction_of_instrument_names(self, dir="test_data"):
-        file_paths = glob_files(dir, "**", "*", "fit.gz")
+        file_paths = glob_files(
+            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+        )
         instruments = extract_separate_instruments(file_paths)
         assert len(instruments) == 2
         assert "alaska_cohoe_00" in instruments
         assert "alaska_cohoe_01" in instruments
 
     def test_dict_of_instruments_paths(self, dir="test_data"):
-        file_paths = glob_files(dir, "**", "*", "fit.gz")
+        file_paths = glob_files(
+            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+        )
         instruments = create_dict_of_instrument_paths(file_paths)
         assert len(instruments) == 2
         assert "alaska_cohoe_00" in instruments
@@ -99,11 +106,15 @@ class TestDataCreation:
         assert len(instruments["alaska_cohoe_01"]) == 24
 
     def test_remove_files(self, dir="test_data"):
-        file_paths = glob_files(dir, "**", "*", "fit.gz")
+        file_paths = glob_files(
+            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+        )
         assert len(file_paths) > 0
         for file in file_paths:
             os.remove(file)
-        file_paths = glob_files(dir, "**", "*", "fit.gz")
+        file_paths = glob_files(
+            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+        )
         assert len(file_paths) == 0
 
 
@@ -116,3 +127,35 @@ class TestDataCreation:
 )
 def test_np_array_to_postgresql_array(input, expected):
     assert np_array_to_postgresql_array(input) == expected
+
+
+def test_combine_non_unique_frequency_axis_mean():
+    index = np.array([1, 2, 2, 3, 3, 3, 4, 5, 5])
+    data = np.array(
+        [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+            [10, 11, 12],
+            [13, 14, 15],
+            [16, 17, 18],
+            [19, 20, 21],
+            [22, 23, 24],
+            [25, 26, 27],
+        ]
+    )
+    result, unique_idxs = combine_non_unique_frequency_axis_mean(index, data)
+
+    expected_result = np.array(
+        [
+            [1, 2, 3],
+            [(4 + 7) / 2, (5 + 8) / 2, (6 + 9) / 2],
+            [(10 + 13 + 16) / 3, (11 + 14 + 17) / 3, (12 + 15 + 18) / 3],
+            [19, 20, 21],
+            [(22 + 25) / 2, (23 + 26) / 2, (24 + 27) / 2],
+        ]
+    )
+    expected_unique_idxs = np.array([1, 2, 3, 4, 5])
+
+    assert np.array_equal(result, expected_result)
+    assert np.array_equal(unique_idxs, expected_unique_idxs)

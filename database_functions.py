@@ -112,7 +112,11 @@ def get_column_names_sql(table_name):
         )
 
         tuple_list = cursor.fetchall()
-        return [tup[0] for tup in tuple_list]
+        tuple_list = [tup[0] for tup in tuple_list]
+        tuple_list = [
+            f'"{tup}"' if "datetime" not in tup else tup for tup in tuple_list
+        ]
+        return tuple_list
 
 
 def insert_values_sql(table_name, columns, values):

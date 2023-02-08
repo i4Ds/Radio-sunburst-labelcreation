@@ -11,6 +11,7 @@ from database_functions import (
     table_to_hyper_table,
     insert_values_sql,
     add_new_column_sql,
+    get_column_names_sql,
 )
 import logging
 
@@ -19,10 +20,16 @@ LOG_FILE = os.path.join(
     "var",
     "log",
     "ecallisto",
-    f"log_data_creation_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.log",
+    f"log_data_addition_to_datebase_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.log",
 )
 
-logger = logging.getLogger(__name__)
+logging.basicConfig(
+    filename=LOG_FILE,
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.DEBUG,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True,
+)
 
 
 def extract_instrument_name(file_path):
@@ -76,20 +83,23 @@ def add_spec_from_path_to_database(path):
     spec = masked_spectogram_to_array(spec)
     instrument = extract_instrument_name(path)
 
-    sql_columns = ",".join(number_list_to_postgresql_compatible_list(spec.freq_axis))
-    sql_columns = "datetime," + sql_columns
-    if not np.intersect1d(sql_columns, get_table_names_sql()).size == len(sql_columns):
-        print(f"Warning: {instrument} has new columns")
-        # Logging
-        logging.warning(f"Warning: {instrument} has new columns")
-        columns_to_add = np.setdiff1d(sql_columns, get_table_names_sql())
-        add_new_column_sql(instrument, columns_to_add, "SMALLINT")
-
     if not np.unique(spec.freq_axis).size == len(spec.freq_axis):
         logging.warning(f"Warning: {instrument} has non-unique frequency axis")
-        print(f"Warning: {instrument} has non-unique frequency axis")
         spec = combine_non_unique_frequency_axis(spec)
 
+    list_frequencies = number_list_to_postgresql_compatible_list(spec.freq_axis)
+    list_frequencies.insert(0, "datetime")
+    if not len(np.setdiff1d(list_frequencies, get_column_names_sql(instrument))) == 0:
+        # Logging
+        logging.warning(f"Warning: {instrument} has new columns")
+        columns_to_add = np.setdiff1d(
+            list_frequencies, get_column_names_sql(instrument)
+        )
+        logging.debug(f"New columns: {columns_to_add}")
+        columns_to_add_sql = ",".join(columns_to_add)
+        add_new_column_sql(instrument, columns_to_add_sql, "SMALLINT")
+
+    sql_columns = ",".join(list_frequencies)
     data = np.array(spec.data, dtype=np.int16)
     assert np.all(data <= 32767)
     date_range = spec_time_to_pd_datetime(spec)
@@ -130,6 +140,35 @@ def add_instrument_from_path_to_database(path):
     table_to_hyper_table(instrument, "datetime")
 
 
+def combine_non_unique_frequency_axis_mean(index, data):
+    """Combine non-unique index data.
+
+    Parameters
+    ----------
+    index : `~numpy.ndarray`
+        The index data to combine the non-unique index data of.
+    data : `~numpy.ndarray`
+        The data to combine the non-unique index data of.
+
+    Returns
+    -------
+    data : `~numpy.ndarray`
+        The combined data.
+    unique_idxs : `~numpy.ndarray`
+        The unique index data.
+
+    Notes
+    -----
+    The function first finds the unique index data and the indices of the non-unique index data.
+    It then combines the non-unique index data using the method specified by the `method` parameter.
+    """
+    unique_idxs, indices = np.unique(index, return_inverse=True)
+    data = np.array(
+        [np.mean(data[indices == i], axis=0) for i in range(len(unique_idxs))]
+    )
+    return data, unique_idxs
+
+
 def combine_non_unique_frequency_axis(spec, method="mean"):
     """Combine non-unique frequency axis data.
 
@@ -150,13 +189,9 @@ def combine_non_unique_frequency_axis(spec, method="mean"):
     The function first finds the unique frequency axis data and the indices of the non-unique frequency axis data.
     It then combines the non-unique frequency axis data using the method specified by the `method` parameter.
     """
-    unique_freq_axis, indices = np.unique(spec.freq_axis, return_inverse=True)
     if method == "mean":
-        data = np.array(
-            [
-                np.mean(spec.data[indices == i], axis=0)
-                for i in range(len(unique_freq_axis))
-            ]
+        data, unique_freq_axis = combine_non_unique_frequency_axis_mean(
+            spec.freq_axis, spec.data
         )
     else:
         raise ValueError(f"Method {method} not supported")
@@ -181,9 +216,7 @@ def glob_files_for_date(dir_path, date, file_name_pattern, extension):
     file_path_pattern = os.path.join(
         dir_path, str(date.year), str(date.month).zfill(2), str(date.day).zfill(2)
     )
-    path_to_glob = os.path.join(
-        dir_path, file_path_pattern, f"{file_name_pattern}.{extension}"
-    )
+    path_to_glob = os.path.join(file_path_pattern, f"{file_name_pattern}.{extension}")
     return glob(path_to_glob, recursive=True)
 
 
@@ -215,9 +248,8 @@ def glob_files(
     The function generates a date range between `start_date` and `end_date` using `pd.date_range`, and retrieves file paths for each date using `glob_files_for_date`.
     The function concatenates the file paths for each date and returns the result.
     """
-    date_range = pd.date_range(start_date, end_date)
     file_paths = []
-    for date in date_range:
+    for date in pd.date_range(start_date, end_date):
         file_paths += glob_files_for_date(dir_path, date, file_name_pattern, extension)
 
     return file_paths
