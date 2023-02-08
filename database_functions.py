@@ -86,6 +86,35 @@ def get_table_names_sql():
         return [tup[0] for tup in tuple_list]
 
 
+def add_new_column_sql(table_name, column_name, column_type):
+    """
+    Adds a new column to the given table
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""ALTER TABLE {table_name}
+                        ADD COLUMN {column_name} {column_type};
+                        """
+        )
+        conn.commit()
+        cursor.close()
+
+
+def get_column_names_sql(table_name):
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT column_name
+                       FROM information_schema.columns
+                       WHERE table_name = '{table_name}';
+                       """
+        )
+
+        tuple_list = cursor.fetchall()
+        return [tup[0] for tup in tuple_list]
+
+
 def insert_values_sql(table_name, columns, values):
     """
     Inserts values into the given table. If they already exist, the value is skipped.

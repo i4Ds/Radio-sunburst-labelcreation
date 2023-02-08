@@ -9,7 +9,7 @@ from tqdm import tqdm
 from datetime import datetime, timedelta
 import pandas as pd
 import logging
-
+from functools import partial
 
 LOCAL_DATA_FOLDER = os.path.join(os.path.abspath(os.sep), "var", "lib", "ecallisto")
 FILES_BASE_URL = "http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/"
@@ -120,12 +120,36 @@ def download_ecallisto_files(
     logger=None,
 ):
     """
-    Downloads all the eCallisto files from the given start date to the end date. If the files already exist, they will not be downloaded again.
-    start_date: Start date of the download (datetime object). If empty, it will be set to yesterday
-    end_date: End date of the download (datetime object). If empty, it will be set to today
-    instrument: If specified, only files with the instrument name will be extracted (substring).
+    Downloads all the eCallisto files from the given start date to the end date.
 
-    Returns None
+    Parameters
+    ----------
+    dir : str
+        Directory where the files will be downloaded.
+    start_date : datetime, optional
+        Start date of the download. Default is the date of yesterday.
+    end_date : datetime, optional
+        End date of the download. Default is the date of today.
+    instrument : str, optional
+        If specified, only files with the instrument name will be extracted (substring).
+    return_download_paths : bool, optional
+        If True, the paths of the downloaded files will be returned. Default is False.
+    logger : logging object, optional
+        A logging object to log the process. If None, a basicConfig will be created. Default is None.
+
+    Returns
+    -------
+    None or List of str
+        None or a list of paths to the downloaded files, depending on return_download_paths.
+
+    Raises
+    ------
+    AssertionError
+        If start_date is greater than end_date.
+
+    Notes
+    -----
+    The function uses the `extract_fiz_gz_files_urls` and `download_ecallisto_file` functions to download the files. The logging messages will be written to the LOG_FILE.
     """
     assert (
         start_date <= end_date
@@ -143,19 +167,23 @@ def download_ecallisto_files(
     logging.info(
         f"Downloading files from {start_date} to {end_date} (instrument: {instrument if instrument else 'all'})"
     )
-    paths = []
-    for date in pd.date_range(start_date, end_date):
+    urls = []
+    for date in tqdm(pd.date_range(start_date, end_date), desc="Fetching URLs"):
         day = date.day if date.day > 9 else f"0{date.day}"
         month = date.month if date.month > 9 else f"0{date.month}"
-        urls = extract_fiz_gz_files_urls(date.year, month, day, instrument=instrument)
-        for url in tqdm(urls, desc=f"Downloading {date}"):
-            path = download_ecallisto_file(url, return_download_path=True, dir=dir)
-            logging.debug(f"Downloaded file {path}")
-            if return_download_paths:
-                paths.append(path)
+        urls.extend(
+            extract_fiz_gz_files_urls(date.year, month, day, instrument=instrument)
+        )
+    # Create a partial function to pass the dir argument and return_download_path
+    fn = partial(
+        download_ecallisto_file, return_download_path=return_download_paths, dir=dir
+    )
+    # Multiprocessing via tqdm
+    with Pool() as p:
+        r = list(tqdm(p.imap(fn, urls), total=len(urls), desc="Downloading files"))
 
     if return_download_paths:
-        return paths
+        return r
 
 
 if __name__ == "__main__":
