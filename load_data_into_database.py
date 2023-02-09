@@ -5,17 +5,12 @@ from data_creation import LOCAL_DATA_FOLDER
 from datetime import datetime, timedelta
 from tqdm import tqdm
 from multiprocessing.pool import Pool as Pool
+import logging_utils
 
-LOG_FILE = os.path.join(
-    os.path.abspath(os.sep),
-    "var",
-    "log",
-    "ecallisto",
-    f"log_data_addition_to_datebase_main_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.log",
-)
+LOGGER = logging_utils.setup_custom_logger("database_data_addition")
 
 def main(start_date, end_date, instrument, dir):
-    paths = glob_files(dir, start_date, end_date, instrument)
+    paths = glob_files(dir_path=dir, start_date=start_date, end_date=end_date, file_name_pattern=instrument)
     dict_paths = create_dict_of_instrument_paths(paths)
     
     t = tqdm(dict_paths.keys(), desc="Adding instruments to database", position=0)
@@ -26,17 +21,11 @@ def main(start_date, end_date, instrument, dir):
             add_instrument_from_path_to_database(file_path)
         with Pool() as p:
             r = list(tqdm(p.imap(add_spec_from_path_to_database, dict_paths[instrument]), total=len(dict_paths[instrument]), desc="Adding specs to database", position=1))
+    LOGGER.info(f"Done adding data to database. {len(dict_paths)} rows added.")
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        filename=LOG_FILE,
-        format="%(asctime)s %(levelname)-8s %(message)s",
-        level=logging.DEBUG,
-        datefmt="%Y-%m-%d %H:%M:%S",
-        force=True,
-    )
     ## Example:
-    # python load_data_into_database.py --start_date 2020-01-01 --end_date 2020-01-02 --instrument all
+    # python load_data_into_database.py --start_date 2020-01-01 --end_date 2020-01-02 --instrument_glob_pattern *
     # Get arguments from command line
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -48,7 +37,7 @@ if __name__ == "__main__":
         type=str,
         default=datetime.today().date())
     parser.add_argument(
-        "--instrument",
+        "--instrument_glob_pattern",
         type=str,
         default="*")
     parser.add_argument(
@@ -56,7 +45,7 @@ if __name__ == "__main__":
         type=str,
         default=LOCAL_DATA_FOLDER)
     args = parser.parse_args()
-    logging.info(f"Arguments: {args}")
+    LOGGER.info(f"Adding data from {args.start_date} to {args.end_date} to database. Args: {args}")
     # Update date to datetime
     args.start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
     args.end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
@@ -64,6 +53,7 @@ if __name__ == "__main__":
         # Main
         main(**vars(args))
     except Exception as e:
-        logging.exception(e)
+        LOGGER.exception(e)
         raise e
+    LOGGER.info("Done")
     

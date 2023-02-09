@@ -1,5 +1,6 @@
 import psycopg2
 import os
+import pandas as pd
 
 # Create variables for the connection to the OS
 os.environ["PGHOST"] = "localhost"
@@ -94,7 +95,7 @@ def add_new_column_sql(table_name, column_name, column_type):
         cursor = conn.cursor()
         cursor.execute(
             f"""ALTER TABLE {table_name}
-                        ADD COLUMN {column_name} {column_type};
+                        ADD COLUMN IF NOT EXISTS {column_name} {column_type};
                         """
         )
         conn.commit()
@@ -113,10 +114,31 @@ def get_column_names_sql(table_name):
 
         tuple_list = cursor.fetchall()
         tuple_list = [tup[0] for tup in tuple_list]
+        tuple_list = sort_column_names(tuple_list)
         tuple_list = [
             f'"{tup}"' if "datetime" not in tup else tup for tup in tuple_list
         ]
         return tuple_list
+
+
+def timebucket_values_from_database_sql(
+    table, start_time, end_time, columns=None, timebucket="1H", agg_function="avg"
+):
+    """
+    Returns all values between start and end time in the given table, timebucketed and aggregated.
+    """
+    if not columns:
+        columns = get_column_names_sql(table)
+        columns = [column for column in columns if column != "datetime"]
+    agg_function_sql = ",".join(
+        [f"{agg_function}({column}) AS {column}" for column in columns]
+    )
+    with psycopg2.connect(CONNECTION) as conn:
+        with conn.cursor() as cur:
+            query = f"SELECT time_bucket('{timebucket}', datetime) AS time, {agg_function_sql} FROM {table} WHERE datetime BETWEEN '{start_time}' AND '{end_time}' GROUP BY time ORDER BY time"
+            print(query)
+            cur.execute(query)
+            return cur.fetchall()
 
 
 def insert_values_sql(table_name, columns, values):
@@ -161,3 +183,60 @@ def get_size_of_database():
         )
         size = cursor.fetchone()[0]
         return size
+
+
+def get_values_from_database_sql(table, start_time, end_time, columns=None):
+    """
+    Returns the values from the given table between the given start and end time
+    """
+    if columns is None:
+        columns = "*"
+
+    with psycopg2.connect(CONNECTION) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT {columns} FROM {table} WHERE datetime BETWEEN '{start_time}' AND '{end_time}'"
+            )
+            return cur.fetchall()
+
+
+def sql_result_to_df(result, columns, meta_data: dict = None):
+    """
+    Converts the given result from a sql query to a pandas dataframe
+    """
+    df = pd.DataFrame(result, columns=columns)
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df = df.set_index("datetime")
+    if meta_data:
+        for key, value in meta_data.items():
+            df.attrs[key] = value
+    return df
+
+
+def sort_column_names(list):
+    return sorted(list, key=lambda x: to_float_if_possible_else_number(x, -100))
+
+
+def is_float(element) -> bool:
+    # If you expect None to be passed:
+    if element is None:
+        return False
+    try:
+        float(element)
+        return True
+    except ValueError:
+        return False
+
+
+def to_float_if_possible(element):
+    if is_float(element):
+        return float(element)
+    else:
+        return element
+
+
+def to_float_if_possible_else_number(element, number):
+    if is_float(element):
+        return float(element)
+    else:
+        return number

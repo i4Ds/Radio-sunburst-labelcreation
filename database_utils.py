@@ -15,21 +15,7 @@ from database_functions import (
 )
 import logging
 
-LOG_FILE = os.path.join(
-    os.path.abspath(os.sep),
-    "var",
-    "log",
-    "ecallisto",
-    f"log_data_addition_to_datebase_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.log",
-)
-
-logging.basicConfig(
-    filename=LOG_FILE,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    level=logging.DEBUG,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    force=True,
-)
+LOGGER = logging.getLogger("database_data_addition")
 
 
 def extract_instrument_name(file_path):
@@ -79,25 +65,35 @@ def add_spec_from_path_to_database(path):
     Args:
         path (str): Path of the file containing the spectrogram data.
     """
-    spec = CallistoSpectrogram.read(path)
+    try:
+        spec = CallistoSpectrogram.read(path)
+    except Exception as e:
+        LOGGER.error(f"Error: {e} for {os.path.basename(path)}")
+        return
     spec = masked_spectogram_to_array(spec)
     instrument = extract_instrument_name(path)
 
     if not np.unique(spec.freq_axis).size == len(spec.freq_axis):
-        logging.warning(f"Warning: {instrument} has non-unique frequency axis")
+        LOGGER.warning(
+            f"Warning: {os.path.basename(path)} has non-unique frequency axis"
+        )
         spec = combine_non_unique_frequency_axis(spec)
 
     list_frequencies = number_list_to_postgresql_compatible_list(spec.freq_axis)
     list_frequencies.insert(0, "datetime")
     if not len(np.setdiff1d(list_frequencies, get_column_names_sql(instrument))) == 0:
-        # Logging
-        logging.warning(f"Warning: {instrument} has new columns")
+        # LOGGER
+        LOGGER.warning(f"Warning: {os.path.basename(path)} contains new columns")
         columns_to_add = np.setdiff1d(
             list_frequencies, get_column_names_sql(instrument)
         )
-        logging.debug(f"New columns: {columns_to_add}")
-        columns_to_add_sql = ",".join(columns_to_add)
-        add_new_column_sql(instrument, columns_to_add_sql, "SMALLINT")
+        LOGGER.debug(f"New columns: {columns_to_add}")
+        for column in columns_to_add:
+            add_new_column_sql(instrument, column, "SMALLINT")
+        if len(get_column_names_sql(instrument)) > 1600:
+            LOGGER.warning(
+                f"Warning: File: {os.path.basename(path)} has above 1600 columns, which could cause performance issues."
+            )
 
     sql_columns = ",".join(list_frequencies)
     data = np.array(spec.data, dtype=np.int16)
@@ -130,8 +126,9 @@ def add_instrument_from_path_to_database(path):
     spec = masked_spectogram_to_array(spec)
     instrument = extract_instrument_name(path)
     if not np.unique(spec.freq_axis).size == len(spec.freq_axis):
-        logging.warning(f"Warning: {instrument} has non-unique frequency axis")
-        print(f"Warning: {instrument} has non-unique frequency axis")
+        LOGGER.warning(
+            f"Warning: {os.path.basename(path)} has non-unique frequency axis"
+        )
         spec = combine_non_unique_frequency_axis(spec)
     sql_columns = numbers_list_to_postgresql_columns_meta_data(
         spec.freq_axis, "SMALLINT"
