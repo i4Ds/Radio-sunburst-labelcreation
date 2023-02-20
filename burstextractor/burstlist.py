@@ -6,11 +6,13 @@ project: Raumschiff
 """
 import pandas as pd
 from burstextractor import timeutils
+import datetime
 import requests
 import os
 
 BASE_URL = f"http://soleil.i4ds.ch/solarradio/data/BurstLists/2010-yyyy_Monstein"
 ENCODING = "iso-8859-1"
+
 
 def process_burst_list(filename):
     """
@@ -20,19 +22,35 @@ def process_burst_list(filename):
     Especially if there are several conditions
     Returns: A Pandas Dataframe with valid events
     """
-    col_names = ['date', 'time', 'type', 'instruments']
+    col_names = ["date", "time", "type", "instruments"]
     skip_row_idxs = []
     with open(filename, "r") as f:
         for row_idx, line in enumerate(f):
-            if (not line.startswith("20")) or len(line) < 12 or '##:##-##:##' in line or '??' in line:
+            if (
+                (not line.startswith("20"))
+                or len(line) < 12
+                or "##:##-##:##" in line
+                or "??" in line
+            ):
                 skip_row_idxs.append(row_idx)
-                
-    data = pd.read_csv(filename, sep="\t", index_col=False, encoding=ENCODING, names=col_names, engine="python", skiprows=skip_row_idxs, dtype=str)
-    
+
+    data = pd.read_csv(
+        filename,
+        sep="\t",
+        index_col=False,
+        encoding=ENCODING,
+        names=col_names,
+        engine="python",
+        skiprows=skip_row_idxs,
+        dtype=str,
+    )
+
     return data
 
 
-def download_burst_list(select_year, select_month, folder='ecallisto_files'):
+def download_burst_list(
+    select_year, select_month, suffix="e-CALLISTO", folder="ecallisto_files"
+):
     """
     The burst list contains all (manually) detected radio bursts per
     month and year. This function gets the file from the server.
@@ -44,8 +62,35 @@ def download_burst_list(select_year, select_month, folder='ecallisto_files'):
     timeutils.check_valid_date(select_year, select_month)
     year, month = timeutils.adjust_year_month(select_year, select_month)
 
-    filename = os.path.join(folder, 'e-CALLISTO_{year}_{month}.txt')
+    filename = f"{suffix}_{year}_{month}.txt"
     flare_list = requests.get(f"{BASE_URL}/{year}/{filename}")
-    with open(filename, "w") as f:
+    with open(os.path.join(folder, filename), "w") as f:
         f.write(flare_list.content.decode(ENCODING))
-    return 
+    return
+
+
+def download_burst_data(years, months, folder):
+    """
+    Downloads and processes e-CALLISTO data for a range of years and months.
+    :param years: A list of years (int) to download data for.
+    :param months: A list of months (int) to download data for, where 1 = January, 2 = February, etc.
+    :param folder: The folder to save the downloaded data to.
+    :return: A Pandas dataframe containing the processed data from all downloaded files.
+    """
+    burst_list = []
+    for year in years:
+        for month in months:
+            # If the current month is in the future and the year is the current year, skip it.
+            if (
+                month > datetime.datetime.now().month
+                and year == datetime.datetime.now().year
+            ):
+                break
+            # Download the data for this year and month and process it.
+            download_burst_list(year, month, folder)
+            burst_list.append(
+                process_burst_list(f"{folder}/e-CALLISTO_{year}_{month:02}.txt")
+            )
+    # Combine all of the processed dataframes into a single dataframe.
+    burst_list = pd.concat(burst_list).reset_index(drop=True)
+    return burst_list

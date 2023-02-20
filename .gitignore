@@ -5,3 +5,4 @@ images/*
 test_data/**/*.fit.gz
 *.log
 .vscode/*
+test_data/**.txt

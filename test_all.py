@@ -10,6 +10,7 @@ from database_utils import (
     extract_separate_instruments,
     combine_non_unique_frequency_axis_mean,
 )
+from burstextractor.burstlist import *
 import pytest
 import numpy as np
 from datetime import datetime
@@ -159,3 +160,32 @@ def test_combine_non_unique_frequency_axis_mean():
 
     assert np.array_equal(result, expected_result)
     assert np.array_equal(unique_idxs, expected_unique_idxs)
+
+
+class TestBurstListCreation:
+    def test_adjust_date(self, year=2022, month=1):
+        year, month = timeutils.adjust_year_month(year, month)
+        assert year == "2022"
+        assert month == "01"
+
+    def test_burst_list_download(
+        self, year=2022, month=1, suffix="e-CALLISTO", dir="test_data"
+    ):
+        download_burst_list(year, month, suffix=suffix, folder=dir)
+        year, month = timeutils.adjust_year_month(year, month)
+        assert os.path.exists(os.path.join(dir, f"{suffix}_{year}_{month}.txt"))
+        with open(os.path.join(dir, f"{suffix}_{year}_{month}.txt")) as f:
+            assert len(f.readlines()) > 0
+            assert "The requested URL was not found on this server" not in f.read()
+
+    def test_burst_list_preprocessing(self, year=2022, month=1, dir="test_data"):
+        download_burst_list(year, month, suffix="e-CALLISTO", folder=dir)
+        year, month = timeutils.adjust_year_month(year, month)
+        burst_list = process_burst_list(
+            os.path.join(dir, f"e-CALLISTO_{year}_{month}.txt")
+        )
+        assert len(burst_list) > 0
+        assert "##:##-##:##" not in burst_list.values
+        assert "##:##-##:##" not in burst_list.index
+        assert "??" not in burst_list.values
+        assert np.all([date[:2] == "20" for date in burst_list["date"].to_list()])
