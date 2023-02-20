@@ -133,10 +133,11 @@ def timebucket_values_from_database_sql(
     agg_function_sql = ",".join(
         [f"{agg_function}({column}) AS {column}" for column in columns]
     )
+    query = f"SELECT time_bucket('{timebucket}', datetime) AS time, {agg_function_sql} FROM {table} WHERE datetime BETWEEN '{start_time}' AND '{end_time}' GROUP BY time ORDER BY time"
+
     with psycopg2.connect(CONNECTION) as conn:
         with conn.cursor() as cur:
             query = f"SELECT time_bucket('{timebucket}', datetime) AS time, {agg_function_sql} FROM {table} WHERE datetime BETWEEN '{start_time}' AND '{end_time}' GROUP BY time ORDER BY time"
-            print(query)
             cur.execute(query)
             return cur.fetchall()
 
@@ -214,7 +215,7 @@ def sql_result_to_df(result, columns, meta_data: dict = None):
 
 
 def sort_column_names(list):
-    return sorted(list, key=lambda x: to_float_if_possible_else_number(x, -100))
+    return sorted(list, key=lambda x: to_float_if_possible_else_number(x, -1000))
 
 
 def is_float(element) -> bool:

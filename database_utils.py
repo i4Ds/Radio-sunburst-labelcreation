@@ -12,10 +12,26 @@ from database_functions import (
     insert_values_sql,
     add_new_column_sql,
     get_column_names_sql,
+    to_float_if_possible,
 )
 import logging
 
 LOGGER = logging.getLogger("database_data_addition")
+
+
+def get_column_names_clean(table_name):
+    """Get the column names of a table in the database.
+
+    Args:
+        table_name (str): Name of the table in the database.
+
+    Returns:
+        list: List of column names without "" around the frequencies.
+    """
+    column_names = get_column_names_sql(table_name)
+    column_names = [name.replace('"', "") for name in column_names]
+    column_names = [to_float_if_possible(name) for name in column_names]
+    return column_names
 
 
 def extract_instrument_name(file_path):
@@ -389,3 +405,48 @@ def np_array_to_postgresql_array_with_datetime_index(index, array):
     # Join the strings with a comma to create the final format
     final_format = ",".join(formatted_list)
     return final_format
+
+
+def fill_missing_timesteps_with_nan(df):
+    """
+    Fill missing timesteps in a pandas DataFrame with NaN values.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame to fill missing timesteps in.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A new DataFrame with missing timesteps filled with NaN values.
+
+    Notes
+    -----
+    This function is useful when working with time-series data that has missing timesteps.
+    By filling the missing timesteps with NaN values, the DataFrame can be easily visualized
+    or analyzed without introducing errors due to missing data.
+
+    The function calculates the median time delta of the input DataFrame, and then creates
+    a new index with evenly spaced values based on that delta. It then uses the pandas
+    `reindex` function to fill in missing timesteps with NaN values.
+
+    Examples
+    --------
+    >>> dates = pd.date_range('2023-02-19 01:00', '2023-02-19 05:00', freq='2H')
+    >>> freqs = ['10M', '20M', '30M']
+    >>> data = np.random.randn(len(dates), len(freqs))
+    >>> df = pd.DataFrame(data, index=dates, columns=freqs)
+    >>> df = fill_missing_timesteps_with_nan(df)
+    >>> print(df)
+
+                            10M       20M       30M
+    2023-02-19 01:00:00 -0.349636  0.004947  0.546848
+    2023-02-19 03:00:00       NaN       NaN       NaN
+    2023-02-19 05:00:00 -0.576182  1.222293 -0.416526
+    """
+    time_delta = np.median(np.diff(df.index.values))
+    time_delta = pd.Timedelta(time_delta)
+    new_index = pd.date_range(df.index[0], df.index[-1], freq=time_delta)
+    df = df.reindex(new_index)
+    return df
