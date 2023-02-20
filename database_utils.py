@@ -1,20 +1,23 @@
+import logging
 import os
-from glob import glob
-from database_functions import get_table_names_sql, create_table_sql
 from datetime import datetime
+from glob import glob
+
+import numpy as np
 import pandas as pd
 from radiospectra.sources import CallistoSpectrogram
-from spectogram_utils import masked_spectogram_to_array, spec_time_to_pd_datetime
-import numpy as np
+
 from database_functions import (
-    create_table_datetime_primary_key_sql,
-    table_to_hyper_table,
-    insert_values_sql,
     add_new_column_sql,
+    create_table_datetime_primary_key_sql,
+    create_table_sql,
     get_column_names_sql,
+    get_table_names_sql,
+    insert_values_sql,
+    table_to_hyper_table,
     to_float_if_possible,
 )
-import logging
+from spectogram_utils import masked_spectogram_to_array, spec_time_to_pd_datetime
 
 LOGGER = logging.getLogger("database_data_addition")
 

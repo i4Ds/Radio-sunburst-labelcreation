@@ -1,9 +1,7 @@
-import os
-from datetime import datetime
-
-
 import logging
 import logging.handlers
+import os
+from datetime import datetime
 
 
 def __create_log_path(log_name):

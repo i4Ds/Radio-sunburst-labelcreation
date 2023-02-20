@@ -1,6 +1,7 @@
-import psycopg2
 import os
+
 import pandas as pd
+import psycopg2
 
 # Create variables for the connection to the OS
 os.environ["PGHOST"] = "localhost"

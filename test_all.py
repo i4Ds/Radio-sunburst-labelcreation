@@ -1,20 +1,20 @@
-from database_utils import (
-    extract_instrument_name,
-    numbers_list_to_postgresql_columns_meta_data,
-    np_array_to_postgresql_array,
-)
+import os
+from datetime import datetime
+
+import numpy as np
+import pytest
+
+from burstextractor.burstlist import *
 from data_creation import download_ecallisto_files
 from database_utils import (
-    glob_files,
-    create_dict_of_instrument_paths,
-    extract_separate_instruments,
     combine_non_unique_frequency_axis_mean,
+    create_dict_of_instrument_paths,
+    extract_instrument_name,
+    extract_separate_instruments,
+    glob_files,
+    np_array_to_postgresql_array,
+    numbers_list_to_postgresql_columns_meta_data,
 )
-from burstextractor.burstlist import *
-import pytest
-import numpy as np
-from datetime import datetime
-import os
 
 
 @pytest.mark.parametrize(

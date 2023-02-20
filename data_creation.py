@@ -4,6 +4,8 @@ from tqdm import tqdm
 from multiprocessing.pool import Pool as Pool
 import datetime
 import requests
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from datetime import datetime, timedelta
@@ -17,9 +19,16 @@ LOCAL_DATA_FOLDER = os.path.join(os.path.abspath(os.sep), "var", "lib", "ecallis
 FILES_BASE_URL = "http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/"
 MIN_FILE_SIZE = 2000  # Minimum file size in bytes, to redownload empty files
 
+# Requests session
+session = requests.Session()
+retry = Retry(connect=3, backoff_factor=0.5)
+adapter = HTTPAdapter(max_retries=retry)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
+
 
 def fetch_content(url):
-    reqs = requests.get(url)
+    reqs = session.get(url)
     soup = BeautifulSoup(reqs.text, "html.parser")
     LOGGER.info(f"Function {fetch_content}")
     LOGGER.info(f"Fetching content from {url}")
@@ -96,7 +105,7 @@ def download_ecallisto_file(URL, return_download_path=False, dir=LOCAL_DATA_FOLD
         not os.path.exists(file_path) or os.path.getsize(file_path) < MIN_FILE_SIZE
     ):  # Check that it is not an empty file (e.g. 404 error)
         # Downloading the file by sending the request to the URL
-        req = requests.get(URL)
+        req = session.get(URL)
         with open(file_path, "wb") as output_file:
             output_file.write(req.content)
     LOGGER.info(f"Function {download_ecallisto_file}")

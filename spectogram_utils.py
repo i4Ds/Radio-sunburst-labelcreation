@@ -1,9 +1,9 @@
-import pandas as pd
 import cv2
-import seaborn as sns
 import matplotlib.pyplot as plt
-from radiospectra.sources import CallistoSpectrogram
 import numpy as np
+import pandas as pd
+import seaborn as sns
+from radiospectra.sources import CallistoSpectrogram
 
 
 def int_time_delta_to_pd_timedelta(int_time_delta):
