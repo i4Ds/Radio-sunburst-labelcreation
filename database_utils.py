@@ -1,6 +1,5 @@
 import logging
 import os
-from datetime import datetime
 from glob import glob
 
 import numpy as np
