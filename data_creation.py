@@ -1,17 +1,17 @@
 # Download all spectograms with burst in the corresponding folder
-import os
-from tqdm import tqdm
-from multiprocessing.pool import Pool as Pool
 import datetime
-import requests
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
-from bs4 import BeautifulSoup
-from tqdm import tqdm
-from datetime import datetime, timedelta
-import pandas as pd
-from functools import partial
 import logging
+import os
+from datetime import datetime, timedelta
+from functools import partial
+from multiprocessing.pool import Pool as Pool
+
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from tqdm import tqdm
+from urllib3.util.retry import Retry
 
 LOGGER = logging.getLogger("database_data_addition")
 
@@ -57,10 +57,10 @@ def extract_content(soup, substrings_to_include):
     return content
 
 
-def extract_fit_gz_files(url, instrument, substrings_to_include=None):
+def extract_fit_gz_files(url, instrument_substring, substrings_to_include=None):
     """
     Extracts all the .fit.gz files from the given url
-    instrument: If specified, only files with the instrument name will be extracted
+    instrument_substring: If specified, only files with the instrument_substring name will be extracted
     substrings_to_include: If specified, only files with the given substrings will be extracted
 
     Returns a list of all the .fit.gz files
@@ -68,8 +68,8 @@ def extract_fit_gz_files(url, instrument, substrings_to_include=None):
     soup = fetch_content(url)
     if substrings_to_include is None:
         substrings_to_include = [".fit.gz"]
-    if instrument:
-        substrings_to_include.append(instrument)
+    if instrument_substring:
+        substrings_to_include.append(instrument_substring)
 
     LOGGER.info(f"Function {extract_fit_gz_files}")
     LOGGER.info(
@@ -78,15 +78,15 @@ def extract_fit_gz_files(url, instrument, substrings_to_include=None):
     return extract_content(soup, substrings_to_include=substrings_to_include)
 
 
-def extract_fiz_gz_files_urls(year, month, day, instrument):
+def extract_fiz_gz_files_urls(year, month, day, instrument_substring):
     """
     Extracts all the .fit.gz files from the given year, month and day
-    instrument: If specified, only files with the instrument name will be extracted
+    instrument_substring: If specified, only files with the instrument_substring name will be extracted
 
     Returns a list of all the .fit.gz files
     """
     url = f"{FILES_BASE_URL}{year}/{month}/{day}/"
-    file_names = extract_fit_gz_files(url, instrument=instrument)
+    file_names = extract_fit_gz_files(url, instrument_substring=instrument_substring)
     urls = [url + file_name for file_name in file_names]
     LOGGER.info(f"Function {extract_fiz_gz_files_urls}")
     LOGGER.info(f"Extracted {len(urls)} files")
@@ -108,11 +108,45 @@ def download_ecallisto_file(URL, return_download_path=False, dir=LOCAL_DATA_FOLD
         req = session.get(URL)
         with open(file_path, "wb") as output_file:
             output_file.write(req.content)
-    LOGGER.info(f"Function {download_ecallisto_file}")
     LOGGER.debug(f"Downloaded file {file_path}")
     # Return path (e.g. for astropy.io.fits.open)
     if return_download_path:
         return file_path
+
+
+def get_urls(start_date, end_date, instrument_substring):
+    """
+    Get the urls of fiz gz files for a given date range and instrument_substring.
+
+    Parameters
+    ----------
+    start_date : pd.Datetime
+        The start date.
+    end_date : pd.Datetime
+        The end date.
+    instrument_substring : str
+        The instrument_substring name.
+
+    Returns
+    -------
+    list of str
+        The list of urls of fiz gz files.
+    """
+
+    urls = []
+    for date in tqdm(pd.date_range(start_date, end_date), desc="fetching urls"):
+        url = extract_fiz_gz_files_urls(
+            date.year,
+            str(date.month).zfill(2),
+            str(date.day).zfill(2),
+            instrument_substring=None
+            if instrument_substring == "None"
+            else instrument_substring,
+        )
+        LOGGER.debug(f"extracted {len(url)} files for {date}")
+        urls.extend(url)
+
+    return urls
 
 
 def download_ecallisto_files(
@@ -160,13 +194,7 @@ def download_ecallisto_files(
     LOGGER.info(
         f"Downloading files from {start_date} to {end_date} (instrument: {instrument if instrument else 'all'})"
     )
-    urls = []
-    for date in tqdm(pd.date_range(start_date, end_date), desc="Fetching URLs"):
-        day = date.day if date.day > 9 else f"0{date.day}"
-        month = date.month if date.month > 9 else f"0{date.month}"
-        urls.extend(
-            extract_fiz_gz_files_urls(date.year, month, day, instrument=instrument)
-        )
+    urls = get_urls(start_date, end_date, instrument)
     # Create a partial function to pass the dir argument and return_download_path
     fn = partial(
         download_ecallisto_file, return_download_path=return_download_paths, dir=dir

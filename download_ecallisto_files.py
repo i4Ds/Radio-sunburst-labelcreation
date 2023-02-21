@@ -20,7 +20,7 @@ def main(start_date, end_date, instrument_glob_pattern="all", dir=LOCAL_DATA_FOL
 
 if __name__ == "__main__":
     ## Example:
-    # python download_ecallisto_files.py --start_date 2020-01-01 --end_date 2020-01-02 --instrument_glob_pattern "all"
+    # python download_ecallisto_files.py --start_date 2022-01-01 --end_date 2023-02-20 --instrument_glob_pattern "all"
     # Get arguments from command line
     parser = argparse.ArgumentParser()
     parser.add_argument(

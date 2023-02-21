@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import os
+import sys
 from datetime import datetime
 
 
@@ -64,3 +65,13 @@ def setup_custom_logger(name, level=logging.INFO):
 # logger.warning("")    // An indication that something unexpected happened, or indicative of some problem in the near future
 # logger.error("")      // Due to a more serious problem, the software has not been able to perform some function.
 # logger.critical("")   // A serious error, indicating that the program itself may be unable to continue running.
+
+
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, "w")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout

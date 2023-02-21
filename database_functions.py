@@ -143,6 +143,21 @@ def timebucket_values_from_database_sql(
             return cur.fetchall()
 
 
+def get_min_max_datetime_from_table_sql(table_name):
+    """
+    Returns the minimum and maximum datetime from the given table
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT MIN(datetime), MAX(datetime)
+                       FROM {table_name};
+                       """
+        )
+
+        return cursor.fetchone()
+
+
 def insert_values_sql(table_name, columns, values):
     """
     Inserts values into the given table. If they already exist, the value is skipped.

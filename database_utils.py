@@ -16,6 +16,7 @@ from database_functions import (
     table_to_hyper_table,
     to_float_if_possible,
 )
+from logging_utils import HiddenPrints
 from spectogram_utils import masked_spectogram_to_array, spec_time_to_pd_datetime
 
 LOGGER = logging.getLogger("database_data_addition")
@@ -84,7 +85,8 @@ def add_spec_from_path_to_database(path):
         path (str): Path of the file containing the spectrogram data.
     """
     try:
-        spec = CallistoSpectrogram.read(path)
+        with HiddenPrints():  # Hide the download success answer by radiospectra
+            spec = CallistoSpectrogram.read(path)
     except Exception as e:
         LOGGER.error(f"Error: {e} for {os.path.basename(path)}")
         return
@@ -115,7 +117,11 @@ def add_spec_from_path_to_database(path):
 
     sql_columns = ",".join(list_frequencies)
     data = np.array(spec.data, dtype=np.int16)
-    assert np.all(data <= 32767)
+    if not np.all(data <= 32767):
+        LOGGER.warning(
+            f"Warning: {os.path.basename(path)} has values above 32767. Values will be capped to 32767. If that is not desired, update this error and change the data type to not SMALLINT."
+        )
+        data = np.clip(data, a_min=0, a_max=32767)
     date_range = spec_time_to_pd_datetime(spec)
     sql_values = np_array_to_postgresql_array_with_datetime_index(date_range, data)
     insert_values_sql(instrument, sql_columns, sql_values)
@@ -143,6 +149,7 @@ def add_instrument_from_path_to_database(path):
     spec = CallistoSpectrogram.read(path)
     spec = masked_spectogram_to_array(spec)
     instrument = extract_instrument_name(path)
+    LOGGER.info(f"Adding instrument {instrument} to database")
     if not np.unique(spec.freq_axis).size == len(spec.freq_axis):
         LOGGER.warning(
             f"Warning: {os.path.basename(path)} has non-unique frequency axis"
@@ -232,7 +239,10 @@ def glob_files_for_date(dir_path, date, file_name_pattern, extension):
         dir_path, str(date.year), str(date.month).zfill(2), str(date.day).zfill(2)
     )
     path_to_glob = os.path.join(file_path_pattern, f"{file_name_pattern}.{extension}")
-    return glob(path_to_glob, recursive=True)
+    LOGGER.info(f"Globbing {path_to_glob}")
+    paths = glob(path_to_glob, recursive=True)
+    LOGGER.info(f"Found {len(paths)} files for {date}")
+    return paths
 
 
 def glob_files(
@@ -264,9 +274,12 @@ def glob_files(
     The function concatenates the file paths for each date and returns the result.
     """
     file_paths = []
-    for date in pd.date_range(start_date, end_date):
+    date_range = pd.date_range(start_date, end_date, freq="D")
+    LOGGER.info(f"Retrieving file paths between {start_date} and {end_date}")
+    for date in date_range:
+        LOGGER.info(f"Retrieving file paths for {date}")
         file_paths += glob_files_for_date(dir_path, date, file_name_pattern, extension)
-
+    LOGGER.info(f"Retrieved {len(file_paths)} file paths")
     return file_paths
 
 
