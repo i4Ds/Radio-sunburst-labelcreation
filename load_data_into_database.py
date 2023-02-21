@@ -12,10 +12,9 @@ from database_functions import *
 from database_utils import *
 
 LOGGER = logging_utils.setup_custom_logger("database_data_addition")
-from threading import Thread
 
 
-def main(start_date, end_date, instrument_substring):
+def main(start_date, end_date, instrument_substring, chunk_size):
     urls = get_urls(start_date, end_date, instrument_substring)
     dict_paths = create_dict_of_instrument_paths(urls)
 
@@ -26,7 +25,11 @@ def main(start_date, end_date, instrument_substring):
             add_instrument_from_path_to_database(file_path)
 
     with mp.Pool(os.cpu_count()) as pool:
-        pool.imap_unordered(add_spec_from_path_to_database, tqdm(urls, total=len(urls)))
+        pool.imap_unordered(
+            add_spec_from_path_to_database,
+            tqdm(urls, total=len(urls)),
+            chunksize=chunk_size,
+        )
 
         # Wait for all tasks to complete
         pool.close()
@@ -55,6 +58,12 @@ if __name__ == "__main__":
         type=str,
         default="None",
         help="Instrument glob pattern. Default is 'None', which means all instruments (no instrument substring pattern matching).",
+    )
+    parser.add_argument(
+        "--chunk_size",
+        type=int,
+        default=1,
+        help="Chunk size for multiprocessing. Default is 100.",
     )
     args = parser.parse_args()
     LOGGER.info(
