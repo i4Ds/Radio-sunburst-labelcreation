@@ -148,7 +148,8 @@ def add_instrument_from_path_to_database(path):
     If the frequency axis of the instrument data is not unique, a warning message is printed.
     The function then creates a table in the database with the extracted instrument name and columns corresponding to the frequency axis data, using `create_table_datetime_primary_key_sql` and `table_to_hyper_table`.
     """
-    spec = CallistoSpectrogram.read(path)
+    with HiddenPrints():  # Hide the download success answer by radiospectra
+        spec = CallistoSpectrogram.read(path)
     spec = masked_spectogram_to_array(spec)
     instrument = extract_instrument_name(path)
     LOGGER.info(f"Adding instrument {instrument} to database")

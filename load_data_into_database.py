@@ -20,9 +20,15 @@ def main(start_date, end_date, instrument_substring, chunk_size):
 
     for instrument in dict_paths.keys():
         if instrument not in get_table_names_sql():
-            # Get random file path to get meta data and create table
-            file_path = dict_paths[instrument][0]
-            add_instrument_from_path_to_database(file_path)
+            for path in dict_paths[instrument]:
+                # Try to add the instrument to the database
+                # Sometimes it fails because the file is corrupted. In that case, try the next file and break if it works
+                try:
+                    add_instrument_from_path_to_database(path)
+                except Exception as e:
+                    LOGGER.error(f"Error adding instrument {instrument}: {e}")
+                else:
+                    break
 
     with mp.Pool(os.cpu_count()) as pool:
         pool.imap_unordered(
