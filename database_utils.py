@@ -78,12 +78,14 @@ def extract_instrument_name(file_path):
     return file_name[1:]  # Remove the first '-'
 
 
-def add_spec_from_path_to_database(path):
+def add_spec_from_path_to_database(path, progress=None):
     """Add spectrogram data from a file to the database.
 
     Args:
         path (str): Path of the file containing the spectrogram data.
     """
+    if progress is not None:
+        progress.value += 1
     try:
         with HiddenPrints():  # Hide the download success answer by radiospectra
             spec = CallistoSpectrogram.read(path)
