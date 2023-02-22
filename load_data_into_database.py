@@ -14,7 +14,7 @@ from database_utils import *
 LOGGER = logging_utils.setup_custom_logger("database_data_addition")
 
 
-def main(start_date, end_date, instrument_substring, chunk_size):
+def main(start_date, end_date, instrument_substring, chunk_size, cpu_count):
     urls = get_urls(start_date, end_date, instrument_substring)
     dict_paths = create_dict_of_instrument_paths(urls)
 
@@ -30,7 +30,7 @@ def main(start_date, end_date, instrument_substring, chunk_size):
                 else:
                     break
 
-    with mp.Pool(os.cpu_count()) as pool:
+    with mp.Pool(cpu_count) as pool:
         pool.map_async(
             add_spec_from_path_to_database,
             tqdm(urls, total=len(urls)),
@@ -70,6 +70,12 @@ if __name__ == "__main__":
         type=int,
         default=10,
         help="Chunk size for multiprocessing. Default is 10.",
+    )
+    parser.add_argument(
+        "--cpu_count",
+        type=int,
+        default=os.cpu_count(),
+        help="Number of CPUs to use. Default is all available CPUs.",
     )
     args = parser.parse_args()
     LOGGER.info(
