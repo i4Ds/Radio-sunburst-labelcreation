@@ -174,6 +174,40 @@ def insert_values_sql(table_name, columns, values):
         cursor.close()
 
 
+def drop_table_sql(table_name):
+    """
+    Drops a table from the database if it exists
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""DROP TABLE IF EXISTS {table_name};
+                        """
+        )
+        conn.commit()
+        cursor.close()
+
+
+def drop_database_sql(database_name):
+    """
+    Drops a database from the database if it exists
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT *
+                FROM pg_stat_activity
+                WHERE datname = {database_name};
+                SELECT	pg_terminate_backend (pid)
+                FROM	pg_stat_activity
+                WHERE	pg_stat_activity.datname = {database_name};
+                DROP DATABASE IF EXISTS {database_name};
+                        """
+        )
+        conn.commit()
+        cursor.close()
+
+
 def get_size_of_table(table_name):
     """
     Returns the size of the given table in MB
@@ -186,6 +220,18 @@ def get_size_of_table(table_name):
         )
         size = cursor.fetchone()[0]
         return size
+
+
+def vacuum_full_database():
+    """
+    VACUUMs the full database
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute("ROLLBACK;")  # Roll back any open transactions
+        cursor.execute("VACUUM FULL;")
+        conn.commit()
+        cursor.close()
 
 
 def get_size_of_database():

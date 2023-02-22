@@ -36,46 +36,52 @@ def fetch_content(url):
     return soup
 
 
-def extract_content(soup, substrings_to_include):
+def extract_content(
+    soup,
+    substring_must_match,
+    substrings_to_include,
+):
     """
     Extracts all the content from the given soup object based on the given parameters
-    substrings_to_include: If specified, only links with the given substrings will be extracted
-    substrings_to_exclude: If specified, links with the given substrings will be excluded
+    substring_must_match: If specified, only links with the substring_must_match will be extracted
+    substrings_to_exclude: If specified, only links without the given substrings will be extracted
 
     Returns a list of all the links
     """
     content = []
     for link in soup.find_all("a"):
-        if all(
-            [pattern in link.get("href") for pattern in substrings_to_include]
-        ):  # If none of the substrings are in the link
-            content.append(link.get("href"))
-    LOGGER.info(f"Function {extract_content}")
+        if substring_must_match in link.get("href"):
+            if any(
+                [substring in link.get("href") for substring in substrings_to_include]
+            ):
+                content.append(link.get("href"))
     LOGGER.info(
-        f"Extracted {len(content)} files with the following substrings: {substrings_to_include}"
+        f"Extracted {len(content)} files with the following substrings: {substrings_to_include} and the following substring must match: {substring_must_match}"
     )
     return content
 
 
-def extract_fit_gz_files(url, instrument_substring, substrings_to_include=None):
+def extract_fit_gz_files(url, instrument_substring, substring_must_match=None):
     """
     Extracts all the .fit.gz files from the given url
     instrument_substring: If specified, only files with the instrument_substring name will be extracted
-    substrings_to_include: If specified, only files with the given substrings will be extracted
+    substring_must_match: If specified, only files with the given substrings will be extracted
 
     Returns a list of all the .fit.gz files
     """
     soup = fetch_content(url)
-    if substrings_to_include is None:
-        substrings_to_include = [".fit.gz"]
-    if instrument_substring:
-        substrings_to_include.append(instrument_substring)
+    if substring_must_match is None:
+        substring_must_match = ".fit.gz"
 
     LOGGER.info(f"Function {extract_fit_gz_files}")
     LOGGER.info(
-        f"Extracting files with the following substrings: {substrings_to_include}"
+        f"Extracting files with the following substrings: {substring_must_match}"
     )
-    return extract_content(soup, substrings_to_include=substrings_to_include)
+    return extract_content(
+        soup,
+        substring_must_match=substring_must_match,
+        substrings_to_include=instrument_substring,
+    )
 
 
 def extract_fiz_gz_files_urls(year, month, day, instrument_substring):
@@ -88,7 +94,6 @@ def extract_fiz_gz_files_urls(year, month, day, instrument_substring):
     url = f"{FILES_BASE_URL}{year}/{month}/{day}/"
     file_names = extract_fit_gz_files(url, instrument_substring=instrument_substring)
     urls = [url + file_name for file_name in file_names]
-    LOGGER.info(f"Function {extract_fiz_gz_files_urls}")
     LOGGER.info(f"Extracted {len(urls)} files")
     return urls
 
@@ -139,9 +144,7 @@ def get_urls(start_date, end_date, instrument_substring):
             date.year,
             str(date.month).zfill(2),
             str(date.day).zfill(2),
-            instrument_substring=None
-            if instrument_substring == "None"
-            else instrument_substring,
+            instrument_substring=instrument_substring,
         )
         LOGGER.debug(f"extracted {len(url)} files for {date}")
         urls.extend(url)

@@ -149,7 +149,7 @@ def add_instrument_from_path_to_database(path):
     The function then creates a table in the database with the extracted instrument name and columns corresponding to the frequency axis data, using `create_table_datetime_primary_key_sql` and `table_to_hyper_table`.
     """
     with HiddenPrints():  # Hide the download success answer by radiospectra
-        spec = CallistoSpectrogram.read(path)
+        spec = CallistoSpectrogram.read(path, cache=False)
     spec = masked_spectogram_to_array(spec)
     instrument = extract_instrument_name(path)
     LOGGER.info(f"Adding instrument {instrument} to database")

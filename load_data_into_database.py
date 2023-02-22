@@ -31,7 +31,7 @@ def main(start_date, end_date, instrument_substring, chunk_size):
                     break
 
     with mp.Pool(os.cpu_count()) as pool:
-        pool.imap_unordered(
+        pool.map_async(
             add_spec_from_path_to_database,
             tqdm(urls, total=len(urls)),
             chunksize=chunk_size,
@@ -48,7 +48,7 @@ def main(start_date, end_date, instrument_substring, chunk_size):
 
 if __name__ == "__main__":
     ## Example:
-    # python load_data_into_database.py --start_date 2022-01-01 --end_date 2023-02-20 --instrument_substring None
+    # python load_data_into_database.py --start_date 2022-01-01 --end_date 2023-02-20 --instrument_substring "Australia-ASSA, Arecibo-Observatory, HUMAIN, SWISS-Landschlacht, ALASKA-COHOE"
     # Get arguments from command line
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -63,13 +63,13 @@ if __name__ == "__main__":
         "--instrument_substring",
         type=str,
         default="None",
-        help="Instrument glob pattern. Default is 'None', which means all instruments (no instrument substring pattern matching).",
+        help="Instrument glob pattern. Default is 'None', which means all instruments (no instrument substring pattern matching). Also accepts a list of instruments, e.g. 'swiss_landschlacht_63, swiss_landschlacht_62'",
     )
     parser.add_argument(
         "--chunk_size",
         type=int,
-        default=1,
-        help="Chunk size for multiprocessing. Default is 100.",
+        default=10,
+        help="Chunk size for multiprocessing. Default is 10.",
     )
     args = parser.parse_args()
     LOGGER.info(
@@ -78,12 +78,12 @@ if __name__ == "__main__":
     # Update date to datetime
     args.start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
     args.end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
-    # Update instrument glob pattern to all if needed
+    # Update instrument glob pattern to all if needed or convert to list
     args.instrument_substring = (
-        "all"
-        if args.instrument_substring.lower() in ["None"]
-        else args.instrument_substring
+        args.instrument_substring if args.instrument_substring != "None" else None
     )
+    if args.instrument_substring is not None:
+        args.instrument_substring = args.instrument_substring.split(", ")
     try:
         # Main
         main(**vars(args))
