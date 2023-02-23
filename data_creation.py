@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timedelta
 from functools import partial
 from multiprocessing.pool import Pool as Pool
+from typing import Union
 
 import pandas as pd
 import requests
@@ -156,7 +157,7 @@ def download_ecallisto_files(
     dir,
     start_date=datetime.today().date() - timedelta(days=1),
     end_date=datetime.today().date(),
-    instrument=None,
+    instrument: Union[list, None] = None,
     return_download_paths=False,
 ):
     """
@@ -170,8 +171,8 @@ def download_ecallisto_files(
         Start date of the download. Default is the date of yesterday.
     end_date : datetime, optional
         End date of the download. Default is the date of today.
-    instrument : str, optional
-        If specified, only files with the instrument name will be extracted (substring).
+    instrument : list, optional
+        If specified, only files containing any of the given instruments (substring) will be downloaded. Default is None (all instruments).
     return_download_paths : bool, optional
         If True, the paths of the downloaded files will be returned. Default is False.
 
@@ -192,7 +193,7 @@ def download_ecallisto_files(
     assert (
         start_date <= end_date
     ), "Start date should be less than end date and both should be datetime objects"
-    if isinstance(instrument, str) and instrument.lower() in ["*", "all", ""]:
+    if isinstance(instrument, str) and instrument.lower() in ["*", "all"]:
         instrument = None
     LOGGER.info(
         f"Downloading files from {start_date} to {end_date} (instrument: {instrument if instrument else 'all'})"

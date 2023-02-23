@@ -1,5 +1,5 @@
+import datetime
 import os
-from datetime import datetime
 
 import numpy as np
 import pytest
@@ -67,28 +67,34 @@ def test_sql_column_creation(names, types, expected):
 
 
 class TestDataCreation:
-    def test_file_download(self, instrument="ALASKA-COHOE", dir="test_data"):
+    def setup(self):
+        self.date = datetime.datetime(2021, 1, 1)
+
+    def test_file_download(self, instruments=["ALASKA-COHOE"], dir="test_data"):
         """Test that the file download works."""
         download_ecallisto_files(
-            start_date=datetime(2021, 1, 1),
-            end_date=datetime(2021, 1, 1),
-            instrument=instrument,
+            start_date=self.date,
+            end_date=self.date,
+            instrument=instruments,
             dir=dir,
         )
-        assert all(
-            instrument in file
-            for file in os.listdir(os.path.join(dir, "2021", "01", "01"))
-        )
+        assert len(os.listdir(dir)) > 0
+        for file in os.listdir(os.path.join(dir, self.date.strftime("%Y/%m/%d"))):
+            assert any([instrument in file for instrument in instruments])
 
     def test_globbing(self, dir="test_data"):
         file_paths = glob_files(
-            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+            dir,
+            start_date=self.date,
+            end_date=self.date,
         )
         assert len(file_paths) == 48
 
     def test_extraction_of_instrument_names(self, dir="test_data"):
         file_paths = glob_files(
-            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+            dir,
+            start_date=self.date,
+            end_date=self.date,
         )
         instruments = extract_separate_instruments(file_paths)
         assert len(instruments) == 2
@@ -97,7 +103,9 @@ class TestDataCreation:
 
     def test_dict_of_instruments_paths(self, dir="test_data"):
         file_paths = glob_files(
-            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+            dir,
+            start_date=self.date,
+            end_date=self.date,
         )
         instruments = create_dict_of_instrument_paths(file_paths)
         assert len(instruments) == 2
@@ -108,13 +116,17 @@ class TestDataCreation:
 
     def test_remove_files(self, dir="test_data"):
         file_paths = glob_files(
-            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+            dir,
+            start_date=datetime.datetime(2021, 1, 1),
+            end_date=datetime.datetime(2021, 1, 1),
         )
         assert len(file_paths) > 0
         for file in file_paths:
             os.remove(file)
         file_paths = glob_files(
-            dir, start_date=datetime(2021, 1, 1), end_date=datetime(2021, 1, 1)
+            dir,
+            start_date=datetime.datetime(2021, 1, 1),
+            end_date=datetime.datetime(2021, 1, 1),
         )
         assert len(file_paths) == 0
 
