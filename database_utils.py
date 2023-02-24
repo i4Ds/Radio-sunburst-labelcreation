@@ -7,6 +7,7 @@ import pandas as pd
 from radiospectra.sources import CallistoSpectrogram
 
 from database_functions import (
+    add_new_column_default_value_sql,
     add_new_column_sql,
     create_table_datetime_primary_key_sql,
     create_table_sql,
@@ -22,7 +23,7 @@ from spectogram_utils import masked_spectogram_to_array, spec_time_to_pd_datetim
 LOGGER = logging.getLogger("database_data_addition")
 
 
-def get_column_names_clean(table_name):
+def get_column_names_clean(table_name, columns_to_drop=["is_burst"]):
     """Get the column names of a table in the database.
 
     Args:
@@ -34,6 +35,7 @@ def get_column_names_clean(table_name):
     column_names = get_column_names_sql(table_name)
     column_names = [name.replace('"', "") for name in column_names]
     column_names = [to_float_if_possible(name) for name in column_names]
+    column_names = [name for name in column_names if name not in columns_to_drop]
     return column_names
 
 
@@ -165,7 +167,7 @@ def add_instrument_from_path_to_database(path):
     table_to_hyper_table(instrument, "datetime")
 
 
-def combine_non_unique_frequency_axis_mean(index, data):
+def combine_non_unique_frequency_axis_mean(index, data, agg_function=np.mean):
     """Combine non-unique index data.
 
     Parameters
@@ -181,6 +183,8 @@ def combine_non_unique_frequency_axis_mean(index, data):
         The combined data.
     unique_idxs : `~numpy.ndarray`
         The unique index data.
+    agg_function : function
+        The function to use to combine the non-unique index data (default is `np.mean`)
 
     Notes
     -----
@@ -189,9 +193,13 @@ def combine_non_unique_frequency_axis_mean(index, data):
     """
     unique_idxs, indices = np.unique(index, return_inverse=True)
     data = np.array(
-        [np.mean(data[indices == i], axis=0) for i in range(len(unique_idxs))]
+        [agg_function(data[indices == i], axis=0) for i in range(len(unique_idxs))]
     )
     return data, unique_idxs
+
+
+def add_is_burst_column(tablename):
+    add_new_column_default_value_sql(tablename, "is_burst", "BOOLEAN", "FALSE")
 
 
 def combine_non_unique_frequency_axis(spec, method="mean"):

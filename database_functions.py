@@ -88,6 +88,60 @@ def get_table_names_sql():
         return [tup[0] for tup in tuple_list]
 
 
+def insert_is_burst_status_between_dates_sql(tablename, start_date, end_date):
+    """Insert is_burst status between two dates.
+
+    Parameters
+    ----------
+    tablename : str
+        The table name to insert the is_burst status for.
+    start_date : `~datetime.datetime`
+        The start date to insert the is_burst status for.
+    end_date : `~datetime.datetime`
+        The end date to insert the is_burst status for.
+
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    The function first finds the unique index data and the indices of the non-unique index data.
+    It then combines the non-unique index data using the method specified by the `method` parameter.
+    """
+    start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
+    end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+        UPDATE {tablename}
+        SET is_burst = TRUE
+        WHERE datetime BETWEEN '{start_date}' AND '{end_date}'
+        """
+        )
+        conn.commit()
+        cursor.close()
+
+
+def add_new_column_default_value_sql(
+    table_name, column_name, column_type, default_value
+):
+    """
+    Adds a new column to the given table
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""ALTER TABLE {table_name}
+                        ADD COLUMN IF NOT EXISTS {column_name} {column_type} DEFAULT {default_value};
+                        """
+        )
+        conn.commit()
+        cursor.close()
+
+
 def add_new_column_sql(table_name, column_name, column_type):
     """
     Adds a new column to the given table
@@ -97,6 +151,39 @@ def add_new_column_sql(table_name, column_name, column_type):
         cursor.execute(
             f"""ALTER TABLE {table_name}
                         ADD COLUMN IF NOT EXISTS {column_name} {column_type};
+                        """
+        )
+        conn.commit()
+        cursor.close()
+
+
+def get_hypertable_sizes_sql():
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT hypertable_name, hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass)
+                FROM timescaledb_information.hypertables;
+                """
+        )
+        df = pd.DataFrame(
+            cursor.fetchall(), columns=["hypertable_name", "hypertable_size (B)"]
+        )
+        df["hypertable_size (GB)"] = df["hypertable_size (B)"].apply(
+            lambda x: x / 1024 / 1024 / 1024
+        )
+        df = df.sort_values(by="hypertable_size (GB)", ascending=False)
+
+        return df
+
+
+def truncate_table_sql(table_name):
+    """
+    Truncates a table from the database if it exists
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""TRUNCATE TABLE {table_name};
                         """
         )
         conn.commit()
@@ -117,20 +204,27 @@ def get_column_names_sql(table_name):
         tuple_list = [tup[0] for tup in tuple_list]
         tuple_list = sort_column_names(tuple_list)
         tuple_list = [
-            f'"{tup}"' if "datetime" not in tup else tup for tup in tuple_list
+            f'"{tup}"' if tup not in ["datetime", "is_burst"] else tup
+            for tup in tuple_list
         ]
         return tuple_list
 
 
 def timebucket_values_from_database_sql(
-    table, start_time, end_time, columns=None, timebucket="1H", agg_function="avg"
+    table,
+    start_time,
+    end_time,
+    columns=None,
+    timebucket="1H",
+    agg_function="avg",
+    columns_not_to_select=["datetime", "is_burst"],
 ):
     """
     Returns all values between start and end time in the given table, timebucketed and aggregated.
     """
     if not columns:
         columns = get_column_names_sql(table)
-        columns = [column for column in columns if column != "datetime"]
+        columns = [column for column in columns if column not in columns_not_to_select]
     agg_function_sql = ",".join(
         [f"{agg_function}({column}) AS {column}" for column in columns]
     )
@@ -222,6 +316,21 @@ def get_size_of_table(table_name):
         return size
 
 
+def get_min_max_datetime_from_table_sql(table_name):
+    """
+    Returns the minimum and maximum datetime from the given table
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT MIN(datetime), MAX(datetime)
+                       FROM {table_name};
+                       """
+        )
+
+        return cursor.fetchone()
+
+
 def vacuum_full_database():
     """
     VACUUMs the full database
@@ -234,7 +343,7 @@ def vacuum_full_database():
         cursor.close()
 
 
-def get_size_of_database():
+def get_size_of_database_sql():
     """
     Returns the size of the database in MB
     """
