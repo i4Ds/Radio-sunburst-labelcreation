@@ -6,7 +6,9 @@ import psycopg2
 # Create variables for the connection to the OS
 os.environ["PGHOST"] = "localhost"
 os.environ["PGUSER"] = "postgres"
-os.environ["PGPASSWORD"] = "1234"
+# If no password is set, set it to 1234 because that is the default password and it's hopefully not production
+if "PGPASSWORD" not in os.environ:
+    os.environ["PGPASSWORD"] = "1234"
 
 ##
 CONNECTION = f' dbname=tsdb user={os.environ["PGUSER"]} host={os.environ["PGHOST"]} password={os.environ["PGPASSWORD"]}'
