@@ -339,21 +339,6 @@ def get_size_of_table(table_name):
         return size
 
 
-def get_min_max_datetime_from_table_sql(table_name):
-    """
-    Returns the minimum and maximum datetime from the given table
-    """
-    with psycopg2.connect(CONNECTION) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            f"""SELECT MIN(datetime), MAX(datetime)
-                       FROM {table_name};
-                       """
-        )
-
-        return cursor.fetchone()
-
-
 def vacuum_full_database():
     """
     VACUUMs the full database
