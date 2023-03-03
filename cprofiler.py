@@ -1,8 +1,6 @@
 import cProfile
 from pstats import Stats
 
-import seaborn as sns
-
 from load_data_into_database import main
 
 timing = {}

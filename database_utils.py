@@ -23,7 +23,7 @@ from spectogram_utils import masked_spectogram_to_array, spec_time_to_pd_datetim
 LOGGER = logging.getLogger("database_data_addition")
 
 
-def get_column_names_clean(table_name, columns_to_drop=["is_burst"]):
+def get_column_names_clean(table_name, columns_to_drop=["burst_type"]):
     """Get the column names of a table in the database.
 
     Args:
@@ -72,7 +72,7 @@ def extract_instrument_name(file_path):
         if not part.isnumeric():
             file_name += "_" + part
     if (
-        len(file_name_parts[-1]) < 6
+        len(file_name_parts[-1]) < 6 and file_name_parts[-1].isnumeric()
     ):  # Sometimes, the last part is an ID number for when the station has multiple instruments.
         # We want to add this to the file name if it's not a time (6 digits).
         file_name = file_name + "_" + file_name_parts[-1]

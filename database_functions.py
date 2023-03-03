@@ -204,10 +204,31 @@ def get_column_names_sql(table_name):
         tuple_list = [tup[0] for tup in tuple_list]
         tuple_list = sort_column_names(tuple_list)
         tuple_list = [
-            f'"{tup}"' if tup not in ["datetime", "is_burst"] else tup
+            f'"{tup}"' if tup not in ["datetime", "burst_type"] else tup
             for tup in tuple_list
         ]
         return tuple_list
+
+
+def get_rolling_mean_sql(table, start_time, end_time, timebucket="1H"):
+    """
+    Returns the rolling mean between start and end time in the given table, timebucketed.
+    """
+    columns = get_column_names_sql(table)
+    columns = [column for column in columns if column not in ["datetime", "burst_type"]]
+    agg_function_sql = ",".join([f"avg({column}) AS {column}" for column in columns])
+    query = f"SELECT time_bucket('{timebucket}', datetime) AS time, {agg_function_sql} FROM {table} WHERE datetime BETWEEN '{start_time}' AND '{end_time}' GROUP BY time ORDER BY time"
+
+    with psycopg2.connect(CONNECTION) as conn:
+        df = pd.read_sql(query, conn)
+        df["time"] = df["time"].apply(lambda x: x.strftime("%Y-%m-%d %H:%M:%S"))
+        df = df.set_index("time")
+        df = df.rolling("1H").mean()
+        df = df.reset_index()
+        df["time"] = df["time"].apply(
+            lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
+        )
+        return df
 
 
 def timebucket_values_from_database_sql(
@@ -217,7 +238,7 @@ def timebucket_values_from_database_sql(
     columns=None,
     timebucket="1H",
     agg_function="avg",
-    columns_not_to_select=["datetime", "is_burst"],
+    columns_not_to_select=["datetime", "burst_type"],
 ):
     """
     Returns all values between start and end time in the given table, timebucketed and aggregated.

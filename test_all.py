@@ -183,7 +183,7 @@ class TestBurstListCreation:
     def test_burst_list_download(
         self, year=2022, month=1, suffix="e-CALLISTO", dir="test_data"
     ):
-        download_burst_list(year, month, suffix=suffix, folder=dir)
+        download_burst_list(year, month, folder=dir)
         year, month = timeutils.adjust_year_month(year, month)
         assert os.path.exists(os.path.join(dir, f"{suffix}_{year}_{month}.txt"))
         with open(os.path.join(dir, f"{suffix}_{year}_{month}.txt")) as f:
@@ -191,7 +191,7 @@ class TestBurstListCreation:
             assert "The requested URL was not found on this server" not in f.read()
 
     def test_burst_list_preprocessing(self, year=2022, month=1, dir="test_data"):
-        download_burst_list(year, month, suffix="e-CALLISTO", folder=dir)
+        download_burst_list(year, month, folder=dir)
         year, month = timeutils.adjust_year_month(year, month)
         burst_list = process_burst_list(
             os.path.join(dir, f"e-CALLISTO_{year}_{month}.txt")
