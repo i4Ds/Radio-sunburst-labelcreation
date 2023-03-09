@@ -23,7 +23,9 @@ from spectogram_utils import masked_spectogram_to_array, spec_time_to_pd_datetim
 LOGGER = logging.getLogger("database_data_addition")
 
 
-def get_column_names_clean(table_name, columns_to_drop=["burst_type"]):
+def get_column_names_clean(
+    table_name, columns_to_drop=["burst_type"], columns_to_add=[]
+):
     """Get the column names of a table in the database.
 
     Args:
@@ -36,7 +38,24 @@ def get_column_names_clean(table_name, columns_to_drop=["burst_type"]):
     column_names = [name.replace('"', "") for name in column_names]
     column_names = [to_float_if_possible(name) for name in column_names]
     column_names = [name for name in column_names if name not in columns_to_drop]
+    if len(columns_to_add) > 0:
+        for column in columns_to_add:
+            column_names.insert(0, column)
     return column_names
+
+
+def subtract_background_image(df, bg_df):
+    """
+    Subtract background image from dataframe
+    :param df: dataframe
+    :param bg_df: background dataframe
+    :return: dataframe with background image subtracted
+    """
+    df = df.copy()
+    bg_df = bg_df.copy()
+    for index, row in bg_df.iterrows():
+        df[df.index.hour == index] = df[df.index.hour == index] - row
+    return df
 
 
 def extract_instrument_name(file_path):
@@ -475,4 +494,11 @@ def fill_missing_timesteps_with_nan(df):
     time_delta = pd.Timedelta(time_delta)
     new_index = pd.date_range(df.index[0], df.index[-1], freq=time_delta)
     df = df.reindex(new_index)
+    return df
+
+
+def fill_missing_hours_with_nan(df):
+    new_index = pd.RangeIndex(start=0, stop=24, step=1)
+    df = df.reindex(new_index)
+    df = df.fillna(np.nan)
     return df

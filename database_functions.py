@@ -251,7 +251,6 @@ def timebucket_values_from_database_sql(
     agg_function_sql = ",".join(
         [f"{agg_function}({column}) AS {column}" for column in columns]
     )
-    query = f"SELECT time_bucket('{timebucket}', datetime) AS time, {agg_function_sql} FROM {table} WHERE datetime BETWEEN '{start_time}' AND '{end_time}' GROUP BY time ORDER BY time"
 
     with psycopg2.connect(CONNECTION) as conn:
         with conn.cursor() as cur:
@@ -380,17 +379,85 @@ def get_values_from_database_sql(table, start_time, end_time, columns=None):
             return cur.fetchall()
 
 
-def sql_result_to_df(result, columns, meta_data: dict = None):
+def sql_result_to_df(result, datetime_col, columns, meta_data: dict = None):
     """
     Converts the given result from a sql query to a pandas dataframe
     """
     df = pd.DataFrame(result, columns=columns)
-    df["datetime"] = pd.to_datetime(df["datetime"])
-    df = df.set_index("datetime")
+    if datetime_col == "datetime":
+        df["datetime"] = pd.to_datetime(df["datetime"])
+    elif datetime_col == "time":
+        pass
+    else:
+        raise ValueError("datetime_col must be either 'datetime' or 'time'")
+    df = df.set_index(datetime_col)
+    # To float if possible
+    for column in df.columns:
+        try:
+            df[column] = df[column].astype(float)  # Convert to float
+        except:
+            pass
     if meta_data:
         for key, value in meta_data.items():
             df.attrs[key] = value
     return df
+
+
+def sql_background_image_to_df(result, columns=None, meta_data: dict = None):
+    """
+    Converts the given result from a sql query to a pandas dataframe
+    """
+    df = pd.DataFrame(result, columns=columns)
+    df = df.set_index("time")
+    for column in df.columns:
+        if is_float(df[column][0]):
+            df[column] = df[column].astype(float)  # Convert to float
+    if meta_data:
+        for key, value in meta_data.items():
+            df.attrs[key] = value
+    return df
+
+
+def get_spectogram_background_image_sql(
+    table,
+    end_time,
+    length="1w",
+    columns=None,
+    timebucket="hour",
+    agg_function="avg",
+    columns_not_to_select=["datetime", "burst_type"],
+):
+    """
+    Get a background image for the spectrogram plot
+    :param table: table name
+    :param end_time: end time
+    :param timebucket: timebucket. e.g. minute, hour. This is then average over the timebucket between start and end time. E.g. if you select 1h, it takes the
+    <agg_function> of all daily-hours between start and end time, thus returning a row per hour.
+    :param agg_function: aggregation function. e.g. MAX, MIN, AVG, SUM, QUANTILE
+    :param columns_not_to_select: columns not to select
+    :return: background image
+    """
+    if not columns:
+        columns = get_column_names_sql(table)
+        columns = [column for column in columns if column not in columns_not_to_select]
+    agg_function_sql = ",".join(
+        [f"{agg_function}({column}) AS {column}" for column in columns]
+    )
+    # Get data between start and end time, grouped by daily hour and aggregated by the agg_function with the help of DATE_TRUNC
+    query = f"""
+    SELECT
+        DATE_PART('{timebucket}', datetime) as time, {agg_function_sql}
+    FROM
+        {table}
+    WHERE 
+        datetime BETWEEN '{end_time}'::timestamp - '{length}'::interval AND '{end_time}'::timestamp
+    GROUP BY
+        time
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query)
+            return cur.fetchall()
 
 
 def sort_column_names(list):

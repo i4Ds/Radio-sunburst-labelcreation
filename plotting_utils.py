@@ -15,6 +15,20 @@ def plot_spectogram(df, instrument_name, start_datetime, end_datetime, size=18):
     return fig
 
 
+def plot_background_image(df, instrument_name, end_time, length, timebucket, size=18):
+    # Fill missing hours with NaN
+
+    fig = px.imshow(df.T, aspect="auto")
+    fig.update_layout(
+        title=f"Background Image of {instrument_name}. Length: {length}. End time: {end_time}. Time bucket: {timebucket}",
+        xaxis_title="Time",
+        yaxis_title="Frequency",
+        font=dict(family="Courier New, monospace", color="#7f7f7f"),
+    )
+
+    return fig
+
+
 def add_burst_to_spectogram(fig, burst_start, burst_end, size=18):
     fig.add_vrect(
         x0=burst_start,
