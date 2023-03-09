@@ -394,7 +394,11 @@ def sql_result_to_df(result, datetime_col, columns, meta_data: dict = None):
     # To float if possible
     for column in df.columns:
         try:
-            df[column] = df[column].astype(float)  # Convert to float
+            # Check if int is possible
+            if df[column].is_integer().all():
+                df[column] = df[column].astype(int)
+            else:
+                df[column] = df[column].astype(float)
         except:
             pass
     if meta_data:
