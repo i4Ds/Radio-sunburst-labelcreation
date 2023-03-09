@@ -420,7 +420,10 @@ def sql_result_to_df(result, datetime_col, columns, meta_data: dict = None):
             else:
                 df[column] = df[column].astype(float)
         except:
-            pass
+            try:
+                df[column] = df[column].astype(float)
+            except:
+                pass
     if meta_data:
         for key, value in meta_data.items():
             df.attrs[key] = value
@@ -470,6 +473,7 @@ def get_spectogram_background_image_sql(
     :param timebucket: timebucket. e.g. minute, hour. This is then average over the timebucket between start and end time. E.g. if you select 1h, it takes the
     <agg_function> of all daily-hours between start and end time, thus returning a row per hour.
     :param agg_function: aggregation function. e.g. MAX, MIN, AVG, SUM, QUANTILE
+    :param quantile_value: quantile value. Only used if agg_function is quantile
     :param columns_not_to_select: columns not to select
     :return: background image
     """

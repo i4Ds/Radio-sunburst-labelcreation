@@ -15,6 +15,8 @@ LOGGER = logging_utils.setup_custom_logger("database_data_addition")
 
 
 def main(start_date, instrument_substring, chunk_size, cpu_count):
+    # Check data for today
+    today = datetime.today().date()
     urls = get_urls(start_date, end_date, instrument_substring)
     dict_paths = create_dict_of_instrument_paths(urls)
 
