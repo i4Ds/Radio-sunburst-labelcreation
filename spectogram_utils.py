@@ -138,7 +138,7 @@ def download_spectogram_from_df_row(df_row, duration):
 
 def masked_spectogram_to_array(spectogram):
     """
-    Converts a masked spectogram to an array
+    Converts a masked spectogram to an array by removing all masked values.
     """
     # Get row with no masked values
     idxs = np.where(~np.any(np.ma.getmaskarray(spectogram.data), axis=1))[0]

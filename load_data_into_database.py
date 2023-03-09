@@ -14,8 +14,7 @@ from database_utils import *
 LOGGER = logging_utils.setup_custom_logger("database_data_addition")
 
 
-def main(start_date, instrument_substring, chunk_size, cpu_count):
-    date_max, date_min = get_date_range_sql()
+def main(start_date, end_date, instrument_substring, chunk_size, cpu_count):
     urls = get_urls(start_date, end_date, instrument_substring)
     dict_paths = create_dict_of_instrument_paths(urls)
 
@@ -49,9 +48,7 @@ def main(start_date, instrument_substring, chunk_size, cpu_count):
 
 if __name__ == "__main__":
     ## Example:
-    # python load_data_into_database.py --start_date 2022-01-01 --end_date 2023-02-20
-    # --instrument_substring "Australia-ASSA, Arecibo-Observatory, HUMAIN, SWISS-Landschlacht, ALASKA-COHOE"
-    # The parameter for the multiprocessing is optimized via cprofiler.
+    # python load_data_into_database.py --start_date 2022-01-01 --end_date 2023-02-20 --instrument_substring "Australia-ASSA, Arecibo-Observatory, HUMAIN, SWISS-Landschlacht, ALASKA-COHOE"
     # Get arguments from command line
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -60,18 +57,13 @@ if __name__ == "__main__":
         default=(datetime.today().date() - timedelta(days=1)).strftime("%Y-%m-%d"),
     )
     parser.add_argument(
+        "--end_date", type=str, default=datetime.today().date().strftime("%Y-%m-%d")
+    )
+    parser.add_argument(
         "--instrument_substring",
         type=str,
         default="None",
-        help="Instrument glob pattern. Default is 'None', which means all instruments currently in the database and every newly added instrument \
-        (added in the last two days). Accepts also a list of instruments, e.g. 'Australia-ASSA, Arecibo-Observatory, HUMAIN, SWISS-Landschlacht, ALASKA-COHOE' \
-        If you pass a List, only those instruments are updated and the ones added in the last two days are added.",
-    )
-    parser.add_argument(
-        "--date_range_chunk_size",
-        type=str,
-        default="1w",
-        help="Date range chunk size. Default is '1w'. This means that it imports data in chunks of one week before going to the next week. ",
+        help="Instrument glob pattern. Default is 'None', which means all instruments (no instrument substring pattern matching). Also accepts a list of instruments, e.g. 'swiss_landschlacht_63, swiss_landschlacht_62'",
     )
     parser.add_argument(
         "--chunk_size",
@@ -86,9 +78,12 @@ if __name__ == "__main__":
         help="Number of CPUs to use. Default is all available CPUs.",
     )
     args = parser.parse_args()
-    LOGGER.info(f"Adding data from {args.start_date}. Args: {args}")
+    LOGGER.info(
+        f"Adding data from {args.start_date} to {args.end_date} to database. Args: {args}"
+    )
     # Update date to datetime
     args.start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
+    args.end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
     # Update instrument glob pattern to all if needed or convert to list
     args.instrument_substring = (
         args.instrument_substring if args.instrument_substring != "None" else None

@@ -415,7 +415,7 @@ def sql_result_to_df(result, datetime_col, columns, meta_data: dict = None):
     for column in df.columns:
         try:
             # Check if int is possible
-            if df[column].is_integer().all():
+            if all(df[column].astype(int) == df[column]):
                 df[column] = df[column].astype(int)
             else:
                 df[column] = df[column].astype(float)
@@ -434,8 +434,14 @@ def sql_background_image_to_df(result, columns=None, meta_data: dict = None):
     df = pd.DataFrame(result, columns=columns)
     df = df.set_index("time")
     for column in df.columns:
-        if is_float(df[column][0]):
-            df[column] = df[column].astype(float)  # Convert to float
+        try:
+            # Check if int is possible
+            if all(df[column].astype(int) == df[column]):
+                df[column] = df[column].astype(int)
+            else:
+                df[column] = df[column].astype(float)
+        except:
+            pass
     if meta_data:
         for key, value in meta_data.items():
             df.attrs[key] = value
