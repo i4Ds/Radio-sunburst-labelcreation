@@ -233,14 +233,20 @@ def get_rolling_mean_sql(table, start_time, end_time, timebucket="1H"):
         return df
 
 
+from typing import List
+
+import psycopg2
+
+
 def timebucket_values_from_database_sql(
-    table,
-    start_time,
-    end_time,
-    columns=None,
-    timebucket="1H",
-    agg_function="avg",
-    columns_not_to_select=["datetime", "burst_type"],
+    table: str,
+    start_time: str,
+    end_time: str,
+    columns: List[str] = None,
+    timebucket: str = "1H",
+    agg_function: str = "avg",
+    quantile_value: float = None,
+    columns_not_to_select: List[str] = ["datetime", "burst_type"],
 ):
     """
     Returns all values between start and end time in the given table, timebucketed and aggregated.
@@ -248,9 +254,23 @@ def timebucket_values_from_database_sql(
     if not columns:
         columns = get_column_names_sql(table)
         columns = [column for column in columns if column not in columns_not_to_select]
-    agg_function_sql = ",".join(
-        [f"{agg_function}({column}) AS {column}" for column in columns]
-    )
+
+    if agg_function == "quantile" and quantile_value is None:
+        raise ValueError(
+            "quantile_value must be specified when using agg_function 'quantile'"
+        )
+
+    if agg_function == "quantile":
+        agg_function_sql = ",".join(
+            [
+                f"percentile_disc({quantile_value}) WITHIN GROUP (ORDER BY {column}) AS {column}"
+                for column in columns
+            ]
+        )
+    else:
+        agg_function_sql = ",".join(
+            [f"{agg_function}({column}) AS {column}" for column in columns]
+        )
 
     with psycopg2.connect(CONNECTION) as conn:
         with conn.cursor() as cur:
@@ -422,14 +442,20 @@ def sql_background_image_to_df(result, columns=None, meta_data: dict = None):
     return df
 
 
+from typing import List
+
+import psycopg2
+
+
 def get_spectogram_background_image_sql(
-    table,
-    end_time,
-    length="1w",
-    columns=None,
-    timebucket="hour",
-    agg_function="avg",
-    columns_not_to_select=["datetime", "burst_type"],
+    table: str,
+    end_time: str,
+    length: str = "1w",
+    columns: List[str] = None,
+    timebucket: str = "hour",
+    agg_function: str = "avg",
+    quantile_value: float = None,
+    columns_not_to_select: List[str] = ["datetime", "burst_type"],
 ):
     """
     Get a background image for the spectrogram plot
@@ -444,9 +470,24 @@ def get_spectogram_background_image_sql(
     if not columns:
         columns = get_column_names_sql(table)
         columns = [column for column in columns if column not in columns_not_to_select]
-    agg_function_sql = ",".join(
-        [f"{agg_function}({column}) AS {column}" for column in columns]
-    )
+
+    if agg_function == "quantile" and quantile_value is None:
+        raise ValueError(
+            "quantile_value must be specified when using agg_function 'quantile'"
+        )
+
+    if agg_function == "quantile":
+        agg_function_sql = ",".join(
+            [
+                f"percentile_disc({quantile_value}) WITHIN GROUP (ORDER BY {column}) AS {column}"
+                for column in columns
+            ]
+        )
+    else:
+        agg_function_sql = ",".join(
+            [f"{agg_function}({column}) AS {column}" for column in columns]
+        )
+
     # Get data between start and end time, grouped by daily hour and aggregated by the agg_function with the help of DATE_TRUNC
     query = f"""
     SELECT
