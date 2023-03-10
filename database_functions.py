@@ -279,7 +279,7 @@ def timebucket_values_from_database_sql(
             return cur.fetchall()
 
 
-def get_min_max_datetime_from_table_sql(table_name):
+def get_min_max_datetime_from_table_sql(table_name) -> tuple:
     """
     Returns the minimum and maximum datetime from the given table
     """

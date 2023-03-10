@@ -14,7 +14,21 @@ from database_utils import (
     glob_files,
     np_array_to_postgresql_array,
     numbers_list_to_postgresql_columns_meta_data,
+    reverse_extract_instrument_name,
 )
+
+
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        ("alaska_cohoe_612", "ALASKA-COHOE"),
+        ("alaska_cohoe", "ALASKA-COHOE"),
+        ("fhn_w_11", "FHN-W"),
+        ("station_1234_5678", "STATION-1234"),
+    ],
+)
+def test_reverse_extract_instrument_name(test_input, expected):
+    assert reverse_extract_instrument_name(test_input) == expected
 
 
 @pytest.mark.parametrize(

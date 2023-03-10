@@ -7,6 +7,7 @@ from functools import partial
 from multiprocessing.pool import Pool as Pool
 from typing import Union
 
+import numpy as np
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
@@ -31,7 +32,6 @@ session.mount("https://", adapter)
 def fetch_content(url):
     reqs = session.get(url)
     soup = BeautifulSoup(reqs.text, "html.parser")
-    LOGGER.info(f"Function {fetch_content}")
     LOGGER.info(f"Fetching content from {url}")
     LOGGER.info(f"Status code: {reqs.status_code}")
     return soup
@@ -44,21 +44,30 @@ def extract_content(
 ):
     """
     Extracts all the content from the given soup object based on the given parameters
-    substring_must_match: If specified, only links with the substring_must_match will be extracted
+    substring_must_match: If specified, only links with the substring_must_match will be extracted. Capitalization is ignored
     substrings_to_exclude: If specified, only links without the given substrings will be extracted
 
     Returns a list of all the links
     """
     content = []
+    if not isinstance(substrings_to_include, list):
+        substrings_to_include = [substrings_to_include]
     for link in soup.find_all("a"):
         if substring_must_match in link.get("href"):
-            if any(
-                [substring in link.get("href") for substring in substrings_to_include]
+            if substrings_to_include is None or any(
+                [
+                    substring.lower() in link.get("href").lower()
+                    for substring in substrings_to_include
+                ]
             ):
                 content.append(link.get("href"))
     LOGGER.info(
         f"Extracted {len(content)} files with the following substrings: {substrings_to_include} and the following substring must match: {substring_must_match}"
     )
+    if len(content) > 0:
+        LOGGER.info(f"Example of extracted files: {np.random.choice(content, 3)}")
+    else:
+        LOGGER.info(f"No files extracted")
     return content
 
 
@@ -74,7 +83,6 @@ def extract_fit_gz_files(url, instrument_substring, substring_must_match=None):
     if substring_must_match is None:
         substring_must_match = ".fit.gz"
 
-    LOGGER.info(f"Function {extract_fit_gz_files}")
     LOGGER.info(
         f"Extracting files with the following substrings: {substring_must_match}"
     )
@@ -130,8 +138,8 @@ def get_urls(start_date, end_date, instrument_substring):
         The start date.
     end_date : pd.Datetime
         The end date.
-    instrument_substring : str
-        The instrument_substring name.
+    instrument_substring : None or list of str
+        The instrument_substring name. If None, all instruments are considered. Also, the capitalization is ignored.
 
     Returns
     -------

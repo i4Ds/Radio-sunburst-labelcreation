@@ -12,6 +12,7 @@ from database_functions import (
     create_table_datetime_primary_key_sql,
     create_table_sql,
     get_column_names_sql,
+    get_min_max_datetime_from_table_sql,
     get_table_names_sql,
     insert_values_sql,
     table_to_hyper_table,
@@ -97,6 +98,89 @@ def extract_instrument_name(file_path):
         file_name = file_name + "_" + file_name_parts[-1]
 
     return file_name[1:]  # Remove the first '-'
+
+
+def get_min_date_of_table(table_name):
+    """Get the min date of a table in the database.
+
+    Parameters
+    ----------
+    table_name : str
+        The name of the table in the database.
+
+    Returns
+    -------
+    datetime.datetime
+        The min date of the table in the database.
+    """
+    min_date, _ = get_min_max_datetime_from_table_sql(table_name)
+    return min_date
+
+
+def get_max_date_of_table(table_name):
+    """Get the max date of a table in the database.
+
+    Parameters
+    ----------
+    table_name : str
+        The name of the table in the database.
+
+    Returns
+    -------
+    datetime.datetime
+        The max date of the table in the database.
+    """
+    _, max_date = get_min_max_datetime_from_table_sql(table_name)
+    return max_date
+
+
+def get_max_of_min_dates_of_tables():
+    """Get the max of the min dates of the tables in the database.
+
+    Returns
+    -------
+    datetime.datetime
+        The max of the min dates of the tables in the database.
+    """
+    table_names = get_table_names_sql()
+    min_dates = []
+    for table_name in table_names:
+        min_dates.append(get_min_date_of_table(table_name))
+    return np.max(min_dates)
+
+
+def reverse_extract_instrument_name(instrument_name, include_number=False):
+    """
+    Convert a lower-case instrument name with underscores to its original hyphenated form.
+
+    Parameters
+    ----------
+    instrument_name : str
+        The instrument name in lower-case with underscores.
+    include_number : bool, optional
+        Whether to include the last number in the output or not. Default is True.
+
+    Returns
+    -------
+    str
+        The original instrument name with hyphens.
+
+    Example
+    -------
+    >>> reverse_extract_instrument_name('alaska_cohoe_612')
+    'ALASKA-COHOE'
+    >>> reverse_extract_instrument_name('alaska_cohoe_612', include_number=False)
+    'ALASKA-COHOE'
+
+    """
+    # Replace underscores with hyphens and upper all the letters
+    parts = [part.upper() for part in instrument_name.split("_")]
+    if not include_number:
+        # Remove the last part if it's a number
+        if parts[-1].isnumeric():
+            parts.pop()
+    # Join the parts with hyphens and return the result
+    return "-".join(parts)
 
 
 def add_spec_from_path_to_database(path, progress=None):
@@ -354,7 +438,20 @@ def extract_separate_instruments(paths):
 
 
 def create_dict_of_instrument_paths(paths):
-    """Creates a dictionary of instrument names and their corresponding file paths."""
+    """
+    Creates a dictionary of instrument names and their corresponding file paths.
+
+    Parameters
+    ----------
+    paths : list
+        List of file paths.
+    Returns
+    -------
+    dict
+        Dictionary of instrument names and their corresponding file paths.
+
+
+    """
     instruments = extract_separate_instruments(paths)
     instrument_paths = {}
     for instrument in instruments:
