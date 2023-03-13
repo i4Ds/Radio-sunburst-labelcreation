@@ -7,5 +7,6 @@ scikit-image
 ruptures
 opencv-python
 seaborn
+pyarrow
 # conda install -c pyviz holoviews
 # conda install -c plotly plotly=5.13.0

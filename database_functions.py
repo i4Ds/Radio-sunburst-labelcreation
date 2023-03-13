@@ -294,6 +294,21 @@ def get_min_max_datetime_from_table_sql(table_name) -> tuple:
         return cursor.fetchone()
 
 
+def get_distinct_dates_from_table_sql(table_name) -> list:
+    """
+    Returns a list of distinct dates (in 'YYYY-MM-DD' format) from the given table
+    """
+    with psycopg2.connect(CONNECTION) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT DISTINCT DATE_TRUNC('day', datetime) AS date
+                       FROM {table_name};
+                       """
+        )
+
+        return [row[0].strftime("%Y-%m-%d") for row in cursor.fetchall()]
+
+
 def insert_values_sql(table_name, columns, values):
     """
     Inserts values into the given table. If they already exist, the value is skipped.

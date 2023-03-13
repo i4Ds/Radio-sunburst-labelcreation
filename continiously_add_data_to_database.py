@@ -12,6 +12,7 @@ from database_functions import *
 from database_utils import *
 
 LOGGER = logging_utils.setup_custom_logger("database_data_addition")
+URL_FILE = "added_data_log/urls.parquet"
 
 
 def add_instruments_from_paths_to_database(dict_paths):
@@ -49,10 +50,48 @@ def add_specs_from_paths_to_database(urls, chunk_size, cpu_count):
         pool.join()
 
 
+def add_and_check_data_of_last_two_weeks(instrument_substring, chunk_size, cpu_count):
+    # Check data for today and yesterday to create the database.
+    LOGGER.info("Checking data for today to create the database.")
+    today = datetime.today().date()
+    new_urls = get_urls(today - timedelta(days=14), today, instrument_substring)
+    new_urls = pd.DataFrame(
+        {"url": new_urls, "date": [extract_date_from_path(url) for url in new_urls]}
+    )
+    # Create the data_today folder if it does not exist
+    if not os.path.exists(URL_FILE.split("/")[0]):
+        os.makedirs(URL_FILE.split("/")[0])
+    # Check if the file exists
+    if os.path.exists(URL_FILE):
+        already_added_urls = pd.read_parquet(URL_FILE)
+        # Get diff between the new urls and the old ones
+    else:
+        already_added_urls = pd.DataFrame(columns=["url", "date"])
+    # Get the urls that are not in the already_added_urls
+    urls_to_add = new_urls[~new_urls["url"].isin(already_added_urls["url"])]
+
+    if len(urls_to_add) == 0:
+        LOGGER.info("No new data to add between today and 14 days ago.")
+        return
+    dict_paths = create_dict_of_instrument_paths(urls_to_add["url"].to_list())
+    LOGGER.info(f"Found {len(dict_paths)} to add in the last two weeks.")
+    # Add the instruments to the database
+    add_instruments_from_paths_to_database(dict_paths)
+
+    # Add the data to the database
+    add_specs_from_paths_to_database(
+        urls_to_add["url"].to_list(), chunk_size, cpu_count
+    )
+
+    # Save all the added urls of the last two weeks
+    df = pd.concat([already_added_urls, urls_to_add])
+    df = df[df.date.dt.date >= today - timedelta(days=14)]
+    df.to_parquet(URL_FILE, index=False)
+
+
 def main(
     start_date: datetime.date,
     instrument_substring: str,
-    days_chunk_size: int,
     chunk_size: int,
     cpu_count: int,
 ) -> None:
@@ -65,8 +104,6 @@ def main(
         The starting date for adding instrument data to the database.
     instrument_substring : str
         A substring to match instrument names with.
-    days_chunk_size : int
-        The number of days of instrument data to add to the database at once.
     chunk_size : int
         The number of instrument data files to add to the database at once.
     cpu_count : int
@@ -95,68 +132,48 @@ def main(
     >>> cpu_count = 8
     >>> main(start_date, instrument_substring, days_chunk_size, chunk_size, cpu_count)
     """
-    while True:
-        # # Check data for today and yesterday to create the database.
-        # LOGGER.info("Checking data for today and yesterday to create the database.")
-        today = datetime.today().date()
-        # urls = get_urls(today - timedelta(days=1), today, instrument_substring)
-        # dict_paths = create_dict_of_instrument_paths(urls)
-        # LOGGER.info(f"Found {len(urls)} files for today and yesterday.")
-        # # Add the instruments to the database
-        # add_instruments_from_paths_to_database(dict_paths)
+    # Add data for today and yesterday to create the database and add new instruments added today.
+    add_and_check_data_of_last_two_weeks(instrument_substring, chunk_size, cpu_count)
+    # Create a list of dates to add to the database
+    dates_to_add = pd.date_range(
+        start_date, datetime.today().date(), freq="D", inclusive="left"
+    )
+    for table in (
+        get_table_names_sql() if not instrument_substring else instrument_substring
+    ):
+        LOGGER.info(f"Checking data for {table}.")
+        try:
+            # Get distinct dates in the database
+            dates_in_db = get_distinct_datetime_from_table(table)
 
-        # # Add the data to the database
-        # add_specs_from_paths_to_database(urls, chunk_size, cpu_count)
+            # Get difference of dates
+            dates_to_add = np.setdiff1d(dates_to_add, dates_in_db)
+            LOGGER.info(
+                f"Found {len(dates_to_add)} new dates to add to {table}. Example: {dates_to_add[0]}"
+            )
 
-        # Iteratively add data per instrument to the database
-        specs_added = {}
-        urls = []
-        for table in get_table_names_sql():
-            LOGGER.info(f"Checking data for {table}.")
-            try:
-                # Get the newest date in the database
-                max_date = get_max_date_of_table(table).date()
+            # Get name of the fits file
+            glob_pattern = [reverse_extract_instrument_name(table).lower()]
 
-                # Get name of the fits file
-                glob_pattern = [reverse_extract_instrument_name(table).lower()]
-
-                # If the newest date is today, then the data is already up to date and we can check that the data in the end of the database is up to date.
-                if not max_date == today:
-                    urls.extend(
-                        get_urls(
-                            max_date,
-                            max_date + timedelta(days=days_chunk_size),
-                            glob_pattern,
-                        )
-                    )
-
-                # Get the last date in the database
-                min_date = get_min_date_of_table(table).date()
-
+            # Add the data to the database
+            for date in tqdm(
+                dates_to_add,
+                total=len(dates_to_add),
+                desc=f"Adding data for {table}",
+            ):
                 # Get the urls
-                urls.extend(
-                    get_urls(
-                        min_date - timedelta(days=days_chunk_size),
-                        min_date,
-                        glob_pattern,
-                    )
+                urls = get_urls(
+                    date,
+                    date,
+                    glob_pattern,
                 )
-
-                # Log the number of files added
-                LOGGER.info(
-                    f"Adding {len(urls)} files to {table} between {min_date - timedelta(days=days_chunk_size)} and {min_date}."
-                )
-
-                # Add the data to the database
                 add_specs_from_paths_to_database(urls, chunk_size, cpu_count)
-                specs_added[table] = len(urls)
-            except ImportError as e:
-                LOGGER.error(f"Error adding data to {table}: {e}")
-                specs_added[table] = 0
-        # Stop if no data was added to the database
-        if sum(specs_added.values()) == 0 or len(specs_added) == 0:
-            LOGGER.info("No more data to add to the database.")
-            break
+            # Check if new data is added
+            add_and_check_data_of_last_two_weeks(
+                instrument_substring, chunk_size, cpu_count
+            )
+        except ImportError as e:
+            LOGGER.error(f"Error adding data to {table}: {e}")
 
 
 if __name__ == "__main__":
@@ -180,13 +197,6 @@ if __name__ == "__main__":
         If you pass a List, only those instruments are updated and the ones added in the last two days are added.",
     )
     parser.add_argument(
-        "--days_chunk_size",
-        type=int,
-        default=7,
-        help="Days chunk size. Default is '7'. This means that it imports data in chunks of one week before going to the next week. Warning: \
-        It could also be that it adds 2x the amount of data incase the data in the database is missing the newest data and the oldest data at the same time.",
-    )
-    parser.add_argument(
         "--chunk_size",
         type=int,
         default=10,
@@ -199,7 +209,6 @@ if __name__ == "__main__":
         help="Number of CPUs to use. Default is all available CPUs.",
     )
     args = parser.parse_args()
-    LOGGER.info(f"Adding data from {args.start_date}. Args: {args}")
     # Update date to datetime
     args.start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
     # Update instrument glob pattern to all if needed or convert to list
@@ -208,6 +217,7 @@ if __name__ == "__main__":
     )
     if args.instrument_substring is not None and "," in args.instrument_substring:
         args.instrument_substring = args.instrument_substring.split(", ")
+    LOGGER.info(f"Adding data from {args.start_date}. Args: {args}")
     try:
         # Main
         main(**vars(args))

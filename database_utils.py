@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from glob import glob
 
 import numpy as np
@@ -12,6 +13,7 @@ from database_functions import (
     create_table_datetime_primary_key_sql,
     create_table_sql,
     get_column_names_sql,
+    get_distinct_dates_from_table_sql,
     get_min_max_datetime_from_table_sql,
     get_table_names_sql,
     insert_values_sql,
@@ -117,6 +119,25 @@ def get_min_date_of_table(table_name):
     return min_date
 
 
+def get_distinct_datetime_from_table(table_name):
+    """Get the distinct datetime values of a table in the database.
+
+    Parameters
+    ----------
+    table_name : str
+        The name of the table in the database.
+
+    Returns
+    -------
+    list
+        The distinct datetime values of the table in the database.
+    """
+    distinct_datetime = get_distinct_dates_from_table_sql(table_name)
+    # To datetime
+    distinct_datetime = [pd.to_datetime(date) for date in distinct_datetime]
+    return distinct_datetime
+
+
 def get_max_date_of_table(table_name):
     """Get the max date of a table in the database.
 
@@ -158,7 +179,7 @@ def reverse_extract_instrument_name(instrument_name, include_number=False):
     instrument_name : str
         The instrument name in lower-case with underscores.
     include_number : bool, optional
-        Whether to include the last number in the output or not. Default is True.
+        Whether to include the last number in the output or not. Default is False.
 
     Returns
     -------
@@ -460,6 +481,20 @@ def create_dict_of_instrument_paths(paths):
         instrument = extract_instrument_name(path)
         instrument_paths[instrument].append(path)
     return instrument_paths
+
+
+def extract_date_from_path(path):
+    """Extracts the date from a file path.
+    Example: /random_2313/ecallisto/2023/01/27/ALASKA_COHOE_20230127_001500_623.fit.gz -> 2023-01-27 00:15:00
+    """
+    date = path.split("/")[-1].split(".")[0].split("_")
+    if (
+        len(date[-1]) < 6 or int(date[-1][:1]) > 24
+    ):  # Last element is not a timestamp but an ID
+        date.pop()
+    date = date[-2:]
+    date = datetime.strptime("_".join(date), "%Y%m%d_%H%M%S")
+    return date
 
 
 def is_table_in_db(table_name):

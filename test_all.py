@@ -9,6 +9,7 @@ from data_creation import download_ecallisto_files
 from database_utils import (
     combine_non_unique_frequency_axis_mean,
     create_dict_of_instrument_paths,
+    extract_date_from_path,
     extract_instrument_name,
     extract_separate_instruments,
     glob_files,
@@ -54,6 +55,36 @@ def test_reverse_extract_instrument_name(test_input, expected):
 )
 def test_instrument_name_extraction(test_input, expected):
     assert extract_instrument_name(test_input) == expected
+
+
+@pytest.mark.parametrize(
+    "test_input,expected",
+    [
+        (
+            "/var/lib/ecallisto/2023/01/27/ALASKA-COHOE_20230127_001500_612.fit.gz",
+            "20230127_001500",
+        ),
+        (
+            "/random_2313/ecallisto/2023/01/27/ALASKA_COHOE_20230127_001500_61212.fit.gz",
+            "20230127_001500",
+        ),
+        (
+            "/random_2313/ecallisto/2023/01/27/ALASKA_COHOE_20230127_001500.fit.gz",
+            "20230127_001500",
+        ),
+        (
+            "/random_2313/ecallisto/2023/01/27/ALASKA_COHOE_20210127_001113.fit.gz",
+            "20210127_001113",
+        ),
+        (
+            "/ran3123öü¨ö23üöeaöd¨üö2¨/ecallisto/2023/01/27/FHN_W_20230127_001500_11.fit.gz",
+            "20230127_001500",
+        ),
+    ],
+)
+def test_datee_extraction(test_input, expected):
+    expected = datetime.datetime.strptime(expected, "%Y%m%d_%H%M%S")
+    assert extract_date_from_path(test_input) == expected
 
 
 @pytest.mark.parametrize(

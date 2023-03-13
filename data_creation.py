@@ -50,7 +50,10 @@ def extract_content(
     Returns a list of all the links
     """
     content = []
-    if not isinstance(substrings_to_include, list):
+    # If the substrings_to_include is not a list, make it a list if it is not None
+    if not substrings_to_include is None and not isinstance(
+        substrings_to_include, list
+    ):
         substrings_to_include = [substrings_to_include]
     for link in soup.find_all("a"):
         if substring_must_match in link.get("href"):
@@ -128,7 +131,7 @@ def download_ecallisto_file(URL, return_download_path=False, dir=LOCAL_DATA_FOLD
         return file_path
 
 
-def get_urls(start_date, end_date, instrument_substring):
+def get_urls(start_date, end_date, instrument_substring) -> list[str]:
     """
     Get the urls of fiz gz files for a given date range and instrument_substring.
 
