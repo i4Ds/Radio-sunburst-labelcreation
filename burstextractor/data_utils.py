@@ -1,5 +1,3 @@
-import pandas as pd
-
 def explode_instruments_long_clean_instruments(data):
     data['instruments'] = data['instruments'].str.split(',')
     data = data.explode('instruments')
