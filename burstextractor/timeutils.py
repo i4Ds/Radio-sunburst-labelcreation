@@ -7,40 +7,60 @@ import pandas as pd
 def extract_time(data):
     ## Fix typos in the data
     # Sometimes, the time range sometimes uses a : instead of a -. Thus, it's hard to split the time range
-    extracted_digits = data['time'].str.extract(r'(\d+).(\d+).(\d+).(\d+)', expand=True)
-    
-    data['time'] = extracted_digits[0] + ':' + extracted_digits[1] + '-' + extracted_digits[2] + ':' + extracted_digits[3]
-    data['time_start'] = extracted_digits[0] + ':' + extracted_digits[1]
-    data['time_end'] = extracted_digits[2] + ':' + extracted_digits[3]
+    extracted_digits = data["time"].str.extract(r"(\d+).(\d+).(\d+).(\d+)", expand=True)
+
+    data["time"] = (
+        extracted_digits[0]
+        + ":"
+        + extracted_digits[1]
+        + "-"
+        + extracted_digits[2]
+        + ":"
+        + extracted_digits[3]
+    )
+    data["time_start"] = extracted_digits[0] + ":" + extracted_digits[1]
+    data["time_end"] = extracted_digits[2] + ":" + extracted_digits[3]
 
     return data
+
 
 def fix_typos_in_time(data):
     replace_dict = {
-        '06:06-06:88': '06:06-06:08',
-        '24:32-14:33': '14:32-14:33',
-        '21:18-212:19': '21:18-21:19',
+        "06:06-06:88": "06:06-06:08",
+        "24:32-14:33": "14:32-14:33",
+        "21:18-212:19": "21:18-21:19",
     }
-    
-    data['time'] = data['time'].replace(replace_dict)
+
+    data["time"] = data["time"].replace(replace_dict)
     return data
+
 
 def fix_24_hour_time(data):
     """
     The time range sometimes uses a 24:00 instead of 00:00. Thus, it's hard to split the time range
     """
-    data['date_start'] = data['date']
-    data['date_end'] = np.where(data['time_end'] == '24:00', (data['date'].astype(int) + 1).astype(str), data['date'])
-    
-    for time in ['time', 'time_start', 'time_end']:
-        data[time] = data[time].str.replace('24:00', '00:00')
-    
+    data["date_start"] = data["date"]
+    data["date_end"] = np.where(
+        data["time_end"] == "24:00",
+        (data["date"].astype(int) + 1).astype(str),
+        data["date"],
+    )
+
+    for time in ["time", "time_start", "time_end"]:
+        data[time] = data[time].str.replace("24:00", "00:00")
+
     return data
 
+
 def create_datetime(data):
-    data['datetime_start'] = pd.to_datetime(data['date_start'] + ' ' + data['time_start'], format='%Y%m%d %H:%M')
-    data['datetime_end'] = pd.to_datetime(data['date_end'] + ' ' + data['time_end'], format='%Y%m%d %H:%M')
+    data["datetime_start"] = pd.to_datetime(
+        data["date_start"] + " " + data["time_start"], format="%Y%m%d %H:%M"
+    )
+    data["datetime_end"] = pd.to_datetime(
+        data["date_end"] + " " + data["time_end"], format="%Y%m%d %H:%M"
+    )
     return data
+
 
 def check_valid_date(year, month):
     """
