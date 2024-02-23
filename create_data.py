@@ -146,32 +146,30 @@ for instrument in instruments:
             print("Datetime is in a burst, trying again...")
             continue
         end_datetime = start_datetime + timedelta(minutes=15)
-        for instrument in instruments:
-            dfs = get_ecallisto_data(
-                start_datetime, end_datetime, instrument_name=instrument
-            )
-            for _, df in dfs.items():
-                try:
-                    instrument = df.attrs["FULLNAME"]
-                    if instrument not in instruments:
-                        continue
-                    # Resample
-                    df = df.resample(resample_delta).max()
-                    # Maybe keep only good frequencies?
-                    # Background sub?
-                    ## Path to save the image to
-                    # It's FOLDER / instrument / burst type / start_datetime.png
-                    path = os.path.join(
-                        FOLDER,
-                        instrument,
-                        "0",
-                        start_datetime.strftime("%Y-%m-%d_%H-%M-%S") + ".png",
-                    )
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    save_image(df.T, path)
-                except Exception as e:
-                    print(e)
-                    print(row["datetime_start"])
-                    print(row["datetime_end"])
-                    print(row["instruments"])
-                    print(instrument)
+        dfs = get_ecallisto_data(
+            start_datetime, end_datetime, instrument_name=instrument
+        )
+        for _, df in dfs.items():
+            try:
+                if instrument != df.attrs["FULLNAME"]:
+                    continue
+                # Resample
+                df = df.resample(resample_delta).max()
+                # Maybe keep only good frequencies?
+                # Background sub?
+                ## Path to save the image to
+                # It's FOLDER / instrument / burst type / start_datetime.png
+                path = os.path.join(
+                    FOLDER,
+                    instrument,
+                    "0",
+                    start_datetime.strftime("%Y-%m-%d_%H-%M-%S") + ".png",
+                )
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                save_image(df.T, path)
+            except Exception as e:
+                print(e)
+                print(row["datetime_start"])
+                print(row["datetime_end"])
+                print(row["instruments"])
+                print(instrument)
