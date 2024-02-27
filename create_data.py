@@ -11,7 +11,6 @@ RESOLUTION = (256, 256)
 BURST_NON_BURST_RATIO = 5  # 5: There are 5x more non bust than burst images.
 resample_delta = timedelta(minutes=15) / RESOLUTION[0]  # Ist nicht perfekt, aber geht
 instruments = [
-    "Australia-ASSA_02",
     "HUMAIN_59",
     "GERMANY-DLR_63",
     "SWISS-Landschlacht_62",
@@ -25,6 +24,7 @@ instruments = [
     "USA-ARIZONA-ERAU_01",
     "MEXICO-LANCE-B_62",
     "MEXART_59",
+    "Australia-ASSA_02",
 ]
 
 
@@ -99,7 +99,10 @@ for instrument in instruments:
         datetime_start = row["datetime_start"] - random_duration(0, 11)
         end_time = datetime_start + timedelta(minutes=15)
         dfs = get_ecallisto_data(
-            datetime_start, end_time, instrument_name=row["instruments"]
+            datetime_start,
+            end_time,
+            instrument_name=row["instruments"],
+            download_from_local=True,
         )
         for _, df in dfs.items():
             try:
@@ -147,7 +150,10 @@ for instrument in instruments:
             continue
         end_datetime = start_datetime + timedelta(minutes=15)
         dfs = get_ecallisto_data(
-            start_datetime, end_datetime, instrument_name=instrument
+            start_datetime,
+            end_datetime,
+            instrument_name=instrument,
+            download_from_local=True,
         )
         for _, df in dfs.items():
             try:
