@@ -5,6 +5,7 @@ from datetime import timedelta
 from PIL import Image
 import random
 import os
+from tqdm import tqdm
 
 FOLDER = "/mnt/nas05/data01/vincenzo/ecallisto/data"
 RESOLUTION = (256, 256)
@@ -95,13 +96,17 @@ for instrument in instruments:
         burst_list["instruments"].isin([instrument.split("_")[0]])
     ]  # Burstliste hat nur der Ort der Antenna, aber nicht die ID, darum #pythonmagic
 
-    for i, row in burst_list.iterrows():
+    for i, row in tqdm(
+        burst_list.iterrows(),
+        total=burst_list.shape[0],
+        desc=f"Getting {instrument} data",
+    ):
         datetime_start = row["datetime_start"] - random_duration(0, 11)
         end_time = datetime_start + timedelta(minutes=15)
         dfs = get_ecallisto_data(
             datetime_start,
             end_time,
-            instrument_name=row["instruments"],
+            instrument_name=instrument,
             download_from_local=True,
         )
         for _, df in dfs.items():
@@ -138,7 +143,12 @@ for instrument in instruments:
     print("Start Datetime:", min_datetime)
     print("End Datetime:", max_datetime)
 
-    while non_burst_generated < burst_generated * BURST_NON_BURST_RATIO:
+    # Initialize tqdm with a large total and manually update
+    desired_total_count = burst_generated * BURST_NON_BURST_RATIO
+    pbar = tqdm(
+        total=desired_total_count, desc=f"Getting non burst data for {instrument}"
+    )
+    while non_burst_generated < desired_total_count:
         start_datetime = return_random_datetime_between(min_datetime, max_datetime)
         # Now we need to check that the start_datetime is not in a burst
         non_burst_in_burst_df = burst_list[
@@ -173,6 +183,8 @@ for instrument in instruments:
                 )
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 save_image(df.T, path)
+                pbar.update(1)  # Increment the progress bar by one
+                non_burst_generated += 1
             except Exception as e:
                 print(e)
                 print(row["datetime_start"])
