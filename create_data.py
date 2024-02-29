@@ -12,19 +12,7 @@ RESOLUTION = (256, 256)
 BURST_NON_BURST_RATIO = 5  # 5: There are 5x more non bust than burst images.
 resample_delta = timedelta(minutes=15) / RESOLUTION[0]  # Ist nicht perfekt, aber geht
 instruments = [
-    "HUMAIN_59",
-    "GERMANY-DLR_63",
-    "SWISS-Landschlacht_62",
-    "AUSTRIA-UNIGRAZ_01",
-    "TRIEST_57",
-    "NORWAY-EGERSUND_01",
-    "SSRT_59",
-    "INDIA-OOTY_02",
-    "INDIA-GAURI_01",
-    "ALASKA-COHOE_63",
-    "USA-ARIZONA-ERAU_01",
-    "MEXICO-LANCE-B_62",
-    "MEXART_59",
+    "Australia-ASSA_62",
     "Australia-ASSA_02",
 ]
 
