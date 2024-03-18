@@ -12,8 +12,32 @@ RESOLUTION = (256, 256)
 BURST_NON_BURST_RATIO = 5  # 5: There are 5x more non bust than burst images.
 resample_delta = timedelta(minutes=15) / RESOLUTION[0]  # Ist nicht perfekt, aber geht
 instruments = [
-    "Australia-ASSA_62",
+    "USA-ARIZONA-ERAU_01",
+    "GLASGOW_01",
+    "EGYPT-Alexandria_02",
+    "BIR_01",
+    "ALASKA-HAARP_62",
+    "MEXICO-FCFM-UANL_01",
+    "MONGOLIA-UB_01",
+    "KASI_59",
+    "ALMATY_58",
+    "MRO_59",
+    "MRO_61",
+    "ALGERIA-CRAAG_59",
+    "ALASKA-COHOE_63",
+    "AUSTRIA-UNIGRAZ_01",
     "Australia-ASSA_02",
+    "Australia-ASSA_62",
+    "GERMANY-DLR_63",
+    "HUMAIN_59",
+    "INDIA-GAURI_01",
+    "INDIA-OOTY_02",
+    "MEXART_59",
+    "MEXICO-LANCE-B_62",
+    "NORWAY-EGERSUND_01",
+    "SSRT_59",
+    "SWISS-Landschlacht_62",
+    "TRIEST_57",
 ]
 
 
@@ -80,13 +104,13 @@ for instrument in instruments:
     burst_list = load_burst_list("burst_list.xlsx")
     # # Some Filtering for specific instruments
     burst_generated = 0
-    burst_list = burst_list[
-        burst_list["instruments"].isin([instrument.split("_")[0]])
+    filtered_burst_list = burst_list[
+        burst_list["instruments"].isin([instrument.split("_")[0]]).copy()
     ]  # Burstliste hat nur der Ort der Antenna, aber nicht die ID, darum #pythonmagic
 
     for i, row in tqdm(
-        burst_list.iterrows(),
-        total=burst_list.shape[0],
+        filtered_burst_list.iterrows(),
+        total=filtered_burst_list.shape[0],
         desc=f"Getting {instrument} data",
     ):
         datetime_start = row["datetime_start"] - random_duration(0, 11)
@@ -103,6 +127,9 @@ for instrument in instruments:
                     continue
                 # Resample
                 df = df.resample(resample_delta).max()
+                assert (
+                    df.shape[0] > 200
+                ), f"Number of rows should be more than 200, got {df.shape[0]}"
                 ## Path to save the image to
                 # It's FOLDER / instrument / burst type / datetime_start.png
                 path = os.path.join(
@@ -125,8 +152,8 @@ for instrument in instruments:
     non_burst_generated = 0
 
     min_datetime, max_datetime = (
-        burst_list["datetime_start"].min(),
-        burst_list["datetime_start"].max(),
+        filtered_burst_list["datetime_start"].min(),
+        filtered_burst_list["datetime_start"].max(),
     )
     print("Start Datetime:", min_datetime)
     print("End Datetime:", max_datetime)
@@ -159,6 +186,9 @@ for instrument in instruments:
                     continue
                 # Resample
                 df = df.resample(resample_delta).max()
+                assert (
+                    df.shape[0] > 200
+                ), f"Number of rows should be more than 200, got {df.shape[0]}"
                 # Maybe keep only good frequencies?
                 # Background sub?
                 ## Path to save the image to
