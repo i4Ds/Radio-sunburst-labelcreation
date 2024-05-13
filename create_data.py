@@ -182,18 +182,21 @@ for instrument in instruments:
     pbar = tqdm(
         total=desired_total_count, desc=f"Getting non burst data for {instrument}"
     )
+    # Read in the unfiltered burst list.
+    # This contains ALL the stations, even if they had wierd typos
+    unfiltered_burst_list = pd.read_excel("burst_list_unfiltered.xlsx")
     while non_burst_generated < desired_total_count:
         start_datetime = return_random_datetime_between(min_datetime, max_datetime)
         end_datetime = start_datetime + timedelta(minutes=15)
         # Now we need to check that the start_datetime is not in a burst
-        non_burst_in_burst_df = burst_list[
+        non_burst_in_burst_df = unfiltered_burst_list[
             (
-                (burst_list.datetime_start <= start_datetime)
-                & (start_datetime <= burst_list.datetime_end)
+                (unfiltered_burst_list.datetime_start <= start_datetime)
+                & (start_datetime <= unfiltered_burst_list.datetime_end)
             )
             | (
-                (burst_list.datetime_start <= end_datetime)
-                & (end_datetime <= burst_list.datetime_end)
+                (unfiltered_burst_list.datetime_start <= end_datetime)
+                & (end_datetime <= unfiltered_burst_list.datetime_end)
             )
         ]
         if not non_burst_in_burst_df.empty:
