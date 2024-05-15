@@ -155,10 +155,11 @@ for instrument in instruments:
                         FOLDER,
                         instrument,
                         str(row["type"]),
-                        row["datetime_start"].strftime("%Y-%m-%d_%H-%M-%S") + ".csv",
+                        row["datetime_start"].strftime("%Y-%m-%d_%H-%M-%S")
+                        + ".parquet",
                     )
                     os.makedirs(os.path.dirname(path), exist_ok=True)
-                    df.to_csv(path)
+                    df.to_parquet(path)
                     burst_generated += 1
             except Exception as e:
                 print(e)
