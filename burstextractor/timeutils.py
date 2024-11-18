@@ -24,12 +24,16 @@ def extract_time(data):
     return data
 
 
+
 def fix_typos_in_time(data):
     replace_dict = {
         "06:06-06:88": "06:06-06:08",
         "24:32-14:33": "14:32-14:33",
         "21:18-212:19": "21:18-21:19",
+        "23:55-23:576": "23:55-23:57",
+        "21:18-212:19": "21:18-21:19",
     }
+
 
     data["time"] = data["time"].replace(replace_dict)
     return data
