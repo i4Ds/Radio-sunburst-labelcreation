@@ -12,7 +12,43 @@ FOLDER = "/mnt/nas05/data01/vincenzo/ecallisto/hu_dataset_live_mai_october"
 RESOLUTION = (256, 256)
 BURST_NON_BURST_RATIO = 10  # 10: There are 10x more non bust than burst images.
 START_DATE = datetime(2024, 5, 13)
-INSTRUMENT_FILTER = None
+INSTRUMENT_FILTER = [
+    "MEXICO-FCFM-UANL_01",
+    "USA-ARIZONA-ERAU_01",
+    "GLASGOW_01",
+    "EGYPT-Alexandria_02",
+    "BIR_01",
+    "ALASKA-HAARP_62",
+    "MONGOLIA-UB_01",
+    "KASI_59",
+    "ALMATY_58",
+    "MRO_59",
+    "MRO_61",
+    "ALGERIA-CRAAG_59",
+    "ALASKA-COHOE_63",
+    "AUSTRIA-UNIGRAZ_01",
+    "Australia-ASSA_02",
+    "Australia-ASSA_62",
+    "GERMANY-DLR_63",
+    "HUMAIN_59",
+    "INDIA-GAURI_01",
+    "INDIA-OOTY_02",
+    "MEXART_59",
+    "MEXICO-LANCE-B_62",
+    "NORWAY-EGERSUND_01",
+    "SSRT_59",
+    "SWISS-Landschlacht_62",
+    "TRIEST_57",
+    "GREENLAND_62",
+    "SWISS-HEITERSWIL_59",
+    "USA-BOSTON_62",
+    "ALASKA-ANCHORAGE_01",
+    "INDONESIA_60",
+    "ITALY-Strassolt_01",
+    "Malaysia-Banting_01",
+    "UZBEKISTAN_01",
+    "ROMANIA_01",
+]
 
 
 def random_duration(min_start, min_end):
@@ -105,6 +141,8 @@ for instrument in tqdm(
         )
         for _, df in dfs.items():
             df: pd.DataFrame
+            if not df.attrs["FULLNAME"] in INSTRUMENT_FILTER:
+                continue
             try:
                 assert (df.index.max() - df.index.min()) > pd.Timedelta(
                     10, unit="minutes"
@@ -167,6 +205,8 @@ for instrument in tqdm(
             download_from_local=True,
         )
         for _, df in dfs.items():
+            if not df.attrs["FULLNAME"] in INSTRUMENT_FILTER:
+                continue
             try:
                 assert (df.index.max() - df.index.min()) > pd.Timedelta(
                     10, unit="minutes"
