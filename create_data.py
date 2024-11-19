@@ -1,47 +1,18 @@
 # %%
 from ecallisto_ng.data_download.downloader import get_ecallisto_data
 from ecallisto_ng.burst_list.utils import load_burst_list
-from datetime import timedelta
+from datetime import timedelta, datetime
 from PIL import Image
 import random
 import os
 from tqdm import tqdm
 import pandas as pd
 
-FOLDER = "/mnt/nas05/data01/vincenzo/ecallisto/data"
+FOLDER = "/mnt/nas05/data01/vincenzo/ecallisto/hu_dataset_live_mai_october"
 RESOLUTION = (256, 256)
-BURST_NON_BURST_RATIO = 10  # 5: There are 10x more non bust than burst images.
-SAVE_IMG = False  # Save DF instead of image with full resolution.
-SAVE_TYPE = "parquet"
-resample_delta = timedelta(minutes=15) / RESOLUTION[0]  # Ist nicht perfekt, aber geht
-instruments = [
-    "MEXICO-FCFM-UANL_01",
-    "USA-ARIZONA-ERAU_01",
-    "GLASGOW_01",
-    "EGYPT-Alexandria_02",
-    "BIR_01",
-    "ALASKA-HAARP_62",
-    "MONGOLIA-UB_01",
-    "KASI_59",
-    "ALMATY_58",
-    "MRO_59",
-    "MRO_61",
-    "ALGERIA-CRAAG_59",
-    "ALASKA-COHOE_63",
-    "AUSTRIA-UNIGRAZ_01",
-    "Australia-ASSA_02",
-    "Australia-ASSA_62",
-    "GERMANY-DLR_63",
-    "HUMAIN_59",
-    "INDIA-GAURI_01",
-    "INDIA-OOTY_02",
-    "MEXART_59",
-    "MEXICO-LANCE-B_62",
-    "NORWAY-EGERSUND_01",
-    "SSRT_59",
-    "SWISS-Landschlacht_62",
-    "TRIEST_57",
-]
+BURST_NON_BURST_RATIO = 10  # 10: There are 10x more non bust than burst images.
+START_DATE = datetime(2024, 5, 13)
+INSTRUMENT_FILTER = None
 
 
 def random_duration(min_start, min_end):
@@ -103,18 +74,26 @@ def return_random_datetime_between(start_datetime, end_datetime):
     )
 
 
-for instrument in instruments:
-    burst_list = load_burst_list("burst_list.xlsx")
+burst_list = load_burst_list("burst_list.xlsx")
+date_filtered_burst_list = burst_list[burst_list["datetime_start"] >= START_DATE]
+
+for instrument in tqdm(
+    date_filtered_burst_list["instruments"].unique(),
+    desc="[Instruments]",
+    position=1,
+):
+    filtered_burst_list = date_filtered_burst_list[
+        date_filtered_burst_list["instruments"] == instrument
+    ]
+
     # # Some Filtering for specific instruments
     burst_generated = 0
-    filtered_burst_list = burst_list[
-        burst_list["instruments"].isin([instrument.split("_")[0]]).copy()
-    ]  # Burstliste hat nur der Ort der Antenna, aber nicht die ID, darum #pythonmagic
 
     for i, row in tqdm(
         filtered_burst_list.iterrows(),
         total=filtered_burst_list.shape[0],
-        desc=f"Getting {instrument} data",
+        desc=f"[Data]",
+        position=2,
     ):
         datetime_start = row["datetime_start"] - random_duration(0, 11)
         end_time = datetime_start + timedelta(minutes=15)
@@ -125,42 +104,22 @@ for instrument in instruments:
             download_from_local=True,
         )
         for _, df in dfs.items():
+            df: pd.DataFrame
             try:
-                if df.attrs["FULLNAME"] != instrument:
-                    continue
-                # Resample
-                if SAVE_IMG:
-                    df = df.resample(resample_delta).max()
-                    assert (
-                        df.shape[0] > 200
-                    ), f"Number of rows should be more than 200, got {df.shape[0]}"
-                    ## Path to save the image to
-                    # It's FOLDER / instrument / burst type / datetime_start.png
-                    path = os.path.join(
-                        FOLDER,
-                        instrument,
-                        str(row["type"]),
-                        row["datetime_start"].strftime("%Y-%m-%d_%H-%M-%S") + ".png",
-                    )
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    save_image(df.T, path)
-                    burst_generated += 1
-                else:
-                    assert (df.index.max() - df.index.min()) > pd.Timedelta(
-                        10, unit="minutes"
-                    )
-                    ## Path to save the image to
-                    # It's FOLDER / instrument / burst type / datetime_start.png
-                    path = os.path.join(
-                        FOLDER,
-                        instrument,
-                        str(row["type"]),
-                        row["datetime_start"].strftime("%Y-%m-%d_%H-%M-%S")
-                        + ".parquet",
-                    )
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    df.to_parquet(path)
-                    burst_generated += 1
+                assert (df.index.max() - df.index.min()) > pd.Timedelta(
+                    10, unit="minutes"
+                )
+                ## Path to save the image to
+                # It's FOLDER / instrument / burst type / datetime_start.png
+                path = os.path.join(
+                    FOLDER,
+                    df.attrs["FULLNAME"],
+                    str(row["type"]),
+                    row["datetime_start"].strftime("%Y-%m-%d_%H-%M-%S") + ".parquet",
+                )
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                df.to_parquet(path)
+                burst_generated += 1
             except Exception as e:
                 print(e)
                 print(row["datetime_start"])
@@ -180,24 +139,21 @@ for instrument in instruments:
 
     # Initialize tqdm with a large total and manually update
     desired_total_count = burst_generated * BURST_NON_BURST_RATIO
-    pbar = tqdm(
-        total=desired_total_count, desc=f"Getting non burst data for {instrument}"
-    )
+    pbar = tqdm(total=desired_total_count, desc=f"[Non Burst data]")
     # Read in the unfiltered burst list.
-    # This contains ALL the stations, even if they had wierd typos
-    unfiltered_burst_list = pd.read_excel("burst_list_unfiltered.xlsx")
+    # This contains ALL the stations, even if they had wierd typos and bursts of other instruments.
     while non_burst_generated < desired_total_count:
         start_datetime = return_random_datetime_between(min_datetime, max_datetime)
         end_datetime = start_datetime + timedelta(minutes=15)
         # Now we need to check that the start_datetime is not in a burst
-        non_burst_in_burst_df = unfiltered_burst_list[
+        non_burst_in_burst_df = date_filtered_burst_list[
             (
-                (unfiltered_burst_list.datetime_start <= start_datetime)
-                & (start_datetime <= unfiltered_burst_list.datetime_end)
+                (date_filtered_burst_list.datetime_start <= start_datetime)
+                & (start_datetime <= date_filtered_burst_list.datetime_end)
             )
             | (
-                (unfiltered_burst_list.datetime_start <= end_datetime)
-                & (end_datetime <= unfiltered_burst_list.datetime_end)
+                (date_filtered_burst_list.datetime_start <= end_datetime)
+                & (end_datetime <= date_filtered_burst_list.datetime_end)
             )
         ]
         if not non_burst_in_burst_df.empty:
@@ -212,46 +168,19 @@ for instrument in instruments:
         )
         for _, df in dfs.items():
             try:
-                if instrument != df.attrs["FULLNAME"]:
-                    continue
-                if SAVE_IMG:
-                    # Resample
-                    df = df.resample(resample_delta).max()
-                    assert (
-                        df.shape[0] > 200
-                    ), f"Number of rows should be more than 200, got {df.shape[0]}"
-                    # Maybe keep only good frequencies?
-                    # Background sub?
-                    ## Path to save the image to
-                    # It's FOLDER / instrument / burst type / start_datetime.png
-                    path = os.path.join(
-                        FOLDER,
-                        instrument,
-                        "0",
-                        start_datetime.strftime("%Y-%m-%d_%H-%M-%S") + ".png",
-                    )
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    save_image(df.T, path)
-                    pbar.update(1)  # Increment the progress bar by one
-                    non_burst_generated += 1
-                else:
-                    assert (df.index.max() - df.index.min()) > pd.Timedelta(
-                        10, unit="minutes"
-                    )
-                    # Maybe keep only good frequencies?
-                    # Background sub?
-                    ## Path to save the image to
-                    # It's FOLDER / instrument / burst type / start_datetime.png
-                    path = os.path.join(
-                        FOLDER,
-                        instrument,
-                        "0",
-                        start_datetime.strftime("%Y-%m-%d_%H-%M-%S") + ".parquet",
-                    )
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    df.to_parquet(path)
-                    pbar.update(1)  # Increment the progress bar by one
-                    non_burst_generated += 1
+                assert (df.index.max() - df.index.min()) > pd.Timedelta(
+                    10, unit="minutes"
+                )
+                path = os.path.join(
+                    FOLDER,
+                    df.attrs["FULLNAME"],
+                    "0",
+                    start_datetime.strftime("%Y-%m-%d_%H-%M-%S") + ".parquet",
+                )
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                df.to_parquet(path)
+                pbar.update(1)  # Increment the progress bar by one
+                non_burst_generated += 1
             except Exception as e:
                 print(e)
                 print(row["datetime_start"])
