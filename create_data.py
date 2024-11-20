@@ -118,8 +118,8 @@ for instrument in tqdm(
     desc="[Instruments]",
     position=1,
 ):
-    filtered_burst_list = burst_list[
-        burst_list["instruments"].isin([instrument.split("_")[0]]).copy()
+    filtered_burst_list = date_filtered_burst_list[
+        date_filtered_burst_list["instruments"].isin([instrument.split("_")[0]]).copy()
     ]  #
 
     # # Some Filtering for specific instruments
@@ -169,8 +169,8 @@ for instrument in tqdm(
     non_burst_generated = 0
 
     min_datetime, max_datetime = (
-        filtered_burst_list["datetime_start"].min(),
-        filtered_burst_list["datetime_start"].max(),
+        date_filtered_burst_list["datetime_start"].min(),
+        date_filtered_burst_list["datetime_start"].max(),
     )
     print("Start Datetime:", min_datetime)
     print("End Datetime:", max_datetime)
