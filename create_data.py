@@ -114,13 +114,13 @@ burst_list = load_burst_list("burst_list.xlsx")
 date_filtered_burst_list = burst_list[burst_list["datetime_start"] >= START_DATE]
 
 for instrument in tqdm(
-    date_filtered_burst_list["instruments"].unique(),
+    INSTRUMENT_FILTER,
     desc="[Instruments]",
     position=1,
 ):
-    filtered_burst_list = date_filtered_burst_list[
-        date_filtered_burst_list["instruments"] == instrument
-    ]
+    filtered_burst_list = burst_list[
+        burst_list["instruments"].isin([instrument.split("_")[0]]).copy()
+    ]  #
 
     # # Some Filtering for specific instruments
     burst_generated = 0
@@ -141,12 +141,12 @@ for instrument in tqdm(
         )
         for _, df in dfs.items():
             df: pd.DataFrame
-            if not df.attrs["FULLNAME"] in INSTRUMENT_FILTER:
+            if not df.attrs["FULLNAME"] == instrument:
                 continue
             try:
                 assert (df.index.max() - df.index.min()) > pd.Timedelta(
                     10, unit="minutes"
-                )
+                ), "Too short."
                 ## Path to save the image to
                 # It's FOLDER / instrument / burst type / datetime_start.png
                 path = os.path.join(
@@ -205,12 +205,12 @@ for instrument in tqdm(
             download_from_local=True,
         )
         for _, df in dfs.items():
-            if not df.attrs["FULLNAME"] in INSTRUMENT_FILTER:
+            if not df.attrs["FULLNAME"] == instrument:
                 continue
             try:
                 assert (df.index.max() - df.index.min()) > pd.Timedelta(
                     10, unit="minutes"
-                )
+                ), "Too short."
                 path = os.path.join(
                     FOLDER,
                     df.attrs["FULLNAME"],
